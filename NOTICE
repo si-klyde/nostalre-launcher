@@ -19,6 +19,10 @@ contributors, https://github.com/MrAntares/roBrowserLegacy, GNU GPL version 3.
 The table generators (scripts/*-tables.py, skill-enum.py, effect-id.py, job-names.py) read rAthena's data and
 source: their output in client/ and android/ carries rAthena's GPL terms, as client/NOTICE states.
 
+The app icon and logo (android/app/src/main/res/drawable-nodpi/ic_launcher_foreground.png,
+docs/images/logo.png) are the project's own artwork, supplied by its author on 2026-10-24, and
+are licensed with this repository.
+
 The hub's font is Noto Sans by the Noto Project Authors, SIL Open Font License 1.1
 (android/app/src/main/assets/licenses/NotoSans-OFL.txt).
 
