@@ -1,0 +1,8 @@
+[submodule "server"]
+	path = server
+	url = https://github.com/si-klyde/rathena-nostalre.git
+	branch = nostalre
+[submodule "client"]
+	path = client
+	url = https://github.com/si-klyde/nostalre.git
+	branch = main

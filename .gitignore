@@ -1,0 +1,4 @@
+/out/
+/game-data/*
+!/game-data/README.md
+__pycache__/

@@ -1,0 +1,25 @@
+nostalRE launcher
+
+The Android app, the bridge and the build and run scripts that package nostalRE with rAthena's servers for
+offline play. Licensed under the GNU General Public License version 3 (LICENSE).
+
+Moved from the private Ragnarok Solo integration repository with fresh history; the roBrowser web client and
+its WebSocket proxy were left there.
+
+client/ is nostalRE, https://github.com/si-klyde/nostalre, under its own licenses (its LICENSE.md and NOTICE).
+
+server/ is rAthena with local changes, https://github.com/si-klyde/rathena-nostalre (branch nostalre),
+GNU GPL version 3 or later, by the rAthena Development Team, https://github.com/rathena/rathena. Its
+NOSTALRE.md lists the changes and how the Android servers are built.
+
+The hub's sprite and action reading (android/.../SpriteFiles.kt, CharacterSprite.kt) and grf-server's file
+protocol and name encoding (bridge/grf_server.cpp) follow roBrowser (roBrowserLegacy) by Vincent Thibault and
+contributors, https://github.com/MrAntares/roBrowserLegacy, GNU GPL version 3.
+
+The table generators (scripts/*-tables.py, skill-enum.py, effect-id.py, job-names.py) read rAthena's data and
+source: their output in client/ and android/ carries rAthena's GPL terms, as client/NOTICE states.
+
+The hub's font is Noto Sans by the Noto Project Authors, SIL Open Font License 1.1
+(android/app/src/main/assets/licenses/NotoSans-OFL.txt).
+
+No game files are included. The app and scripts read the player's own game folder.

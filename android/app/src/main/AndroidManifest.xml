@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:tools="http://schemas.android.com/tools">
+
+	<uses-permission android:name="android.permission.INTERNET" />
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+	<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+		tools:ignore="ScopedStorage" />
+
+	<application
+		android:label="@string/app_name"
+		android:icon="@android:drawable/sym_def_app_icon"
+		android:extractNativeLibs="true"
+		android:usesCleartextTraffic="true"
+		android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
+
+		<activity
+			android:name=".MainActivity"
+			android:exported="true"
+			android:launchMode="singleTask"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density">
+			<intent-filter>
+				<action android:name="android.intent.action.MAIN" />
+				<category android:name="android.intent.category.LAUNCHER" />
+			</intent-filter>
+		</activity>
+
+		<!-- the game: nostalRE's native client, libnostalre_client.so (NativeGame.kt) -->
+		<activity
+			android:name=".GameActivity"
+			android:process=":game"
+			android:exported="false"
+			android:screenOrientation="sensorLandscape"
+			android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density">
+			<meta-data
+				android:name="android.app.lib_name"
+				android:value="nostalre_client" />
+		</activity>
+
+		<service
+			android:name=".ServerService"
+			android:exported="false"
+			android:foregroundServiceType="specialUse">
+			<property
+				android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+				android:value="Local game server for the offline game client in this app" />
+		</service>
+	</application>
+</manifest>
