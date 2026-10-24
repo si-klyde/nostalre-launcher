@@ -33,7 +33,9 @@ sample = os.path.join(client, "config.sample.json")
 config = json.load(open(path if os.path.exists(path) else sample))
 ini = configparser.ConfigParser()
 ini.read(os.path.join(data, "DATA.INI"))
-names = [name for _, name in sorted(ini["Data"].items(), key=lambda kv: int(kv[0]))] if ini.has_section("Data") else ["data.grf"]
+listed = [(k, v) for k, v in ini["Data"].items() if k.isdigit()] if ini.has_section("Data") else []
+names = [name for _, name in sorted(listed, key=lambda kv: int(kv[0]))]
+names = names or ["data.grf"]
 if os.path.isfile(os.path.join(data, "official_data.grf")) and "official_data.grf" not in (n.lower() for n in names):
     names.append("official_data.grf")
 config["grf_paths"] = [os.path.join(data, name) for name in names]

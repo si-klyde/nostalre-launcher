@@ -26,8 +26,8 @@ object GameDir {
 
 	/**
 	 * The archives the game and grf-server read, the first holding a file wins: DATA.INI's in its order (data.grf
-	 * alone without one), then official_data.grf when the folder has it and DATA.INI does not name it, as WARPGATE's
-	 * own DATA.INI does not.
+	 * alone without one, or with one that lists none), then official_data.grf when the folder has it and DATA.INI
+	 * does not name it, as WARPGATE's own DATA.INI does not.
 	 */
 	fun archives( dir: File ): List<File> {
 		val ini = File( dir, "DATA.INI" )
@@ -36,6 +36,7 @@ object GameDir {
 				.mapNotNull { Regex( """^\s*(\d+)\s*=\s*(.+?)\s*$""" ).find( it )?.destructured }
 				.sortedBy { ( order, _ ) -> order.toInt() }
 				.map { ( _, name ) -> name }
+				.ifEmpty { listOf( MAIN ) }
 		else
 			listOf( MAIN )
 		val withOfficial = if( File( dir, OFFICIAL ).isFile && names.none { it.equals( OFFICIAL, ignoreCase = true ) } )
