@@ -22,8 +22,9 @@ exe="${client_parts[2]}"
 [ -x "$OUT/host/bin/map-server" ] || "$ROOT/scripts/build-server.sh" host
 [ -f "$OUT/db/ragnarok.db" ] || "$ROOT/scripts/make-db.sh" --test-account
 
-# GRFs in DATA.INI order (the client's first archive wins too), game-data/data over them; everything else the
-# client keeps as it wrote it
+# GRFs in DATA.INI order (data.grf alone without one), then official_data.grf when it is there and DATA.INI does not
+# name it, as the Android app does (GameDir.archives); the client's first archive wins too, game-data/data over
+# them; everything else the client keeps as it wrote it
 python3 -I - "$client" "$ROOT/game-data" "$OUT" <<'EOF'
 import configparser, json, os, shutil, sys
 client, data, out = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -32,8 +33,12 @@ sample = os.path.join(client, "config.sample.json")
 config = json.load(open(path if os.path.exists(path) else sample))
 ini = configparser.ConfigParser()
 ini.read(os.path.join(data, "DATA.INI"))
-order = sorted(ini["Data"].items(), key=lambda kv: int(kv[0]))
-config["grf_paths"] = [os.path.join(data, name) for _, name in order]
+listed = [(k, v) for k, v in ini["Data"].items() if k.isdigit()] if ini.has_section("Data") else []
+names = [name for _, name in sorted(listed, key=lambda kv: int(kv[0]))]
+names = names or ["data.grf"]
+if os.path.isfile(os.path.join(data, "official_data.grf")) and "official_data.grf" not in (n.lower() for n in names):
+    names.append("official_data.grf")
+config["grf_paths"] = [os.path.join(data, name) for name in names]
 config["bgm_path"] = os.path.join(data, "BGM")
 # the pinned client's folder, the first archive's: its System and SystemEN tables (map titles, special pop-ups)
 config["install_dir"] = os.path.dirname(os.path.normpath(config["grf_paths"][0])) if config["grf_paths"] else None

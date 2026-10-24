@@ -96,66 +96,50 @@ and its servers on a PC.
 ### Prerequisites
 
 * An Android 11+ device with a 64-bit ARM processor (`arm64-v8a`), for example a Retroid Pocket, an AYN Odin or
-  most phones from the last few years
-* About 5 GB of free storage
-* A PC, once, to put the game folder together (Python 3; see [English text](#english-text))
-* Your own game files:
-
-| What | Where it comes from | Needed? | Without it |
-| --- | --- | --- | --- |
-| `data.grf` | kRO's 2025-07-16 full client (GRF version 0x300, unencrypted), from [WARP0716](https://github.com/CrazyBebop/WARP0716): its README's WARPGATE downloader fetches it | Required | Nothing runs: nostalRE speaks that client's packet version, older or encrypted archives do not work |
-| `official_data.grf` | ROenglishRE ([custom officials](https://llchrisll.github.io/ROTPDocs/misc/custom_officials/)) | Required | About 400 monsters, NPCs and items the servers use are invisible |
-| English `data/` | `scripts/import-english.py` from ROenglishRE | Strongly recommended | Korean text, and many newer items without a name or a look: the 2025 archive's own item table knows only about half the items |
-| `System/`, `SystemEN/`, `data/` | The same client folder (WARP0716) | Recommended | No map title cards, special pop-ups, title names or damage skins |
-| `BGM/` | The same client folder (WARP0716) | Optional | No music |
-| `iteminfo_true.lub` | An official kRO install's `System/itemInfo_true.lub` | Optional | Item looks come from the English table instead of kRO's own |
+  most phones from the last few years, with about 5 GB free
+* A Windows PC (or Linux with Wine), once, to download the game client
 
 ### Installation
 
-1. **Download** `nostalre-v….-arm64.apk` from the
-   [latest release](https://github.com/si-klyde/nostalre-launcher/releases/latest) (under **Assets**).
-2. **Put the game folder together on a PC**: get the kRO 2025-07-16 full client from [WARP0716](https://github.com/CrazyBebop/WARP0716) (its README's
-   **WARPGATE** downloader, a Windows app, fetches it). Copy the folder it downloads as it is (it holds `data.grf`,
-   `System/`, `SystemEN/`, `data/` and `BGM/`; its `.exe` and `.dll` files are not needed), add `official_data.grf`,
-   and write `DATA.INI`:
-   ```
-   nostalRE/
-   ├── DATA.INI
-   ├── data.grf
-   ├── official_data.grf
-   ├── System/
-   ├── SystemEN/
-   ├── BGM/
-   └── data/
-       └── luafiles514/lua files/datainfo/iteminfo_true.lub   (optional, renamed from System/itemInfo_true.lub)
-   ```
-   `DATA.INI` lists the archives in the order they are read, the first one holding a file wins:
-   ```ini
-   [Data]
-   1=data.grf
-   2=official_data.grf
-   ```
-   Then add the English text into its `data/` folder ([English text](#english-text)), and copy the whole folder
-   to the device, for example to `nostalRE` in the internal storage.
-3. **Install** the APK: open it on the device and allow installs from your file manager or browser when Android
-   asks.
-4. **Open nostalRE** and follow the setup:
-   1. *Allow access*: the app reads the game files where they are, so it needs access to all files.
-   2. *Choose folder*: pick the game folder from step 2 (the folder itself, the one holding `DATA.INI`).
-   3. The app unpacks its servers; this takes a moment the first time.
-   4. *Username*: 4 to 23 letters, digits or `_`. There is no password to remember: the account lives on the
-      device.
-5. **Make a character**: choose *New character*, then a race (Human or Doram), a body, a hair style and colour,
-   and a name, and *Create*.
-6. **Play**: pick the character and press *Play*. The servers start in the background and the game logs in by
-   itself.
+1. **Get the kRO client.** Open [WARP0716](https://github.com/CrazyBebop/WARP0716) and follow *Getting the
+   Client*: its **WARPGATE** downloader fetches kRO's 2025-07-16 full client into a folder.
+2. **Add `official_data.grf`.** Download it from ROenglishRE's
+   [custom officials](https://llchrisll.github.io/ROTPDocs/misc/custom_officials/) page and put it in that folder,
+   next to `data.grf`.
+3. **Copy the folder to your device,** for example as `nostalRE` in the internal storage. Its `.exe` and `.dll`
+   files are not needed.
+4. **Install and open nostalRE.** Download `nostalre-v….-arm64.apk` from the
+   [latest release](https://github.com/si-klyde/nostalre-launcher/releases/latest), open it on the device
+   (allow installs when Android asks), then in the app: *Allow access*, *Choose folder* (the one from step 3),
+   pick a username, make a character and press *Play*.
+
+That is all: the app finds the archives by itself and tells you if something is missing. For English text, see
+[below](#english-text).
+
+<details>
+<summary>What the game folder holds, and what each part gives</summary>
+
+| What | Needed? | Without it |
+| --- | --- | --- |
+| `data.grf` (kRO 2025-07-16, from WARPGATE) | Required | Nothing runs: nostalRE speaks that client's packet version; older or encrypted archives do not work |
+| `official_data.grf` (ROenglishRE) | Required | About 400 monsters, NPCs and items the servers use are invisible |
+| English `data/` files ([English text](#english-text)) | Strongly recommended | Korean text, and many newer items without a name or a look: the 2025 archive's own item table knows only about half the items |
+| `System/`, `SystemEN/`, `data/` (from WARPGATE) | Recommended | No map title cards, special pop-ups, title names or damage skins |
+| `BGM/` (from WARPGATE) | Optional | No music |
+| `data/luafiles514/lua files/datainfo/iteminfo_true.lub` (an official kRO install's `System/itemInfo_true.lub`, renamed) | Optional | Item looks come from the English table instead of kRO's own |
+
+`DATA.INI` is optional: the app reads the archives it lists, in order (the first one holding a file wins), and adds
+`official_data.grf` when the folder has it but `DATA.INI` does not name it. Without one it reads `data.grf`, then
+`official_data.grf`. The app never changes the folder.
+
+</details>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### English text
 
-kRO's data is in Korean. The English text comes from the ROenglishRE translation, written into the game folder's
-`data/` by a script (Python 3 with PyYAML, and `luac5.1` for the English item table):
+kRO's data is in Korean. Until the app can do it itself, the English text is set up on a PC, once, by a script
+that writes the ROenglishRE translation into the game folder's `data/` (Python 3 with PyYAML, and `luac5.1`):
 
 ```sh
 git clone https://github.com/llchrisll/ROenglishRE.git
@@ -163,8 +147,7 @@ git clone --recurse-submodules https://github.com/si-klyde/nostalre-launcher.git
 python3 nostalre-launcher/scripts/import-english.py ROenglishRE /path/to/nostalRE   # writes /path/to/nostalRE/data/
 ```
 
-Run it after copying the kRO client folder: it writes over kRO's Korean tables in `data/` with English ones, and
-adds an English item table for the items the 2025 archive's own table lacks.
+Run it on the game folder before copying it to the device (or copy the new `data/` over afterwards).
 
 ### Updating
 
@@ -175,9 +158,11 @@ a development key, so 0.1.2 and later cannot install over it; uninstall 0.1.1 fi
 
 | Message | What to do |
 | --- | --- |
-| *No DATA.INI in …* | Choose the game folder itself, not its parent or a GRF |
+| *data.grf is not in …* | Choose the client folder itself, the one holding `data.grf`, not its parent |
+| *… from an older client* | That `data.grf` is not kRO's 2025-07-16 client: get it with WARPGATE ([Installation](#installation)) |
+| *No official_data.grf in this folder* | Download it ([Installation](#installation), step 2) and put it next to `data.grf`; you can play without it, minus some monsters and NPCs |
 | *Port … did not open* | A server failed to start: the message shows where its logs are. Restart the app, and [report it](https://github.com/si-klyde/nostalre-launcher/issues/new) with the log if it repeats |
-| Characters or monsters drawn as nothing | An archive is missing or out of order: check `DATA.INI` lists `data.grf` before `official_data.grf` |
+| Characters or monsters drawn as nothing | `official_data.grf` is missing, or a `DATA.INI` lists it before `data.grf` |
 | Korean text in game | Add the English `data/` folder ([English text](#english-text)) |
 
 When reporting a problem, include the app version, the device and Android version, and the steps that lead to it.
@@ -275,7 +260,7 @@ job names. After changing `server/`, rerun the generator and commit its output w
 - [x] Release-signed APKs
 - [ ] Continuous integration for this repository
 - [ ] English text set up inside the app, without a PC
-- [ ] Check every archive `DATA.INI` lists while choosing the folder
+- [x] The app finds the archives itself and says what the folder lacks
 - [ ] Larger dialogs and shop windows on handhelds
 - [ ] No `official_data.grf` needed
 - [ ] A desktop launcher
