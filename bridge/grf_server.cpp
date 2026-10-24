@@ -9,7 +9,8 @@
 //
 // Without a DATA.INI it only serves the folder's files.
 //
-// Usage: grf-server <game data dir> [port]   (default 8001)
+// Usage: grf-server <game data dir> [port] [archive...]   (default 8001; the archives in the order to read them,
+//   else those DATA.INI lists)
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -394,17 +395,21 @@ void session( int fd ){
 
 int main( int argc, char** argv ){
 	if( argc < 2 ){
-		fprintf( stderr, "usage: grf-server <game data dir> [port]\n" );
+		fprintf( stderr, "usage: grf-server <game data dir> [port] [archive...]\n" );
 		return EXIT_FAILURE;
 	}
 	data_dir = argv[1];
 	int port = argc > 2 ? atoi( argv[2] ) : 8001;
 
-	std::vector<std::string> grfs = data_ini( data_dir );
+	// the archives as the caller lists them (the Android app: the game's own list), else DATA.INI's
+	std::vector<std::string> grfs( argv + std::min( argc, 3 ), argv + argc );
 	if( grfs.empty() )
-		fprintf( stderr, "[grf-server] no DATA.INI in %s, serving its files only\n", data_dir.c_str() );
+		for( const std::string& name : data_ini( data_dir ) )
+			grfs.push_back( data_dir + "/" + name );
+	if( grfs.empty() )
+		fprintf( stderr, "[grf-server] no archives and no DATA.INI in %s, serving its files only\n", data_dir.c_str() );
 	for( const std::string& grf : grfs )
-		load_grf( data_dir + "/" + grf );
+		load_grf( grf );
 	index_loose();
 
 	int server = socket( AF_INET, SOCK_STREAM, 0 );

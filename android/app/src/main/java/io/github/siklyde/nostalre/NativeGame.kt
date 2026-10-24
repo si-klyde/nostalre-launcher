@@ -27,10 +27,10 @@ object NativeGame {
 	fun prepare( activity: Activity, gameDir: File, charId: Int ) {
 		val file = File( activity.filesDir, "config.json" )
 		val config = runCatching { JSONObject( file.readText() ) }.getOrElse { JSONObject() }
-		config.put( "grf_paths", JSONArray( grfs( gameDir ).map { it.path } ) )
+		config.put( "grf_paths", JSONArray( GameDir.archives( gameDir ).map { it.path } ) )
 		config.put( "bgm_path", File( gameDir, "BGM" ).path )
-		// kRO's tables beside its archive (System/, SystemEN/: map titles, pop-ups, titles, damage skins), when the
-		// player copied them into the game folder, as scripts/run-nostalre.sh gives a desktop run
+		// kRO's tables beside its archive (System/, SystemEN/: map titles, pop-ups, titles, damage skins), which the
+		// client folder WARPGATE downloads has; scripts/run-nostalre.sh gives a desktop run the same
 		config.put( "install_dir", gameDir.path )
 		config.put( "data_dir", looseFiles( activity, gameDir )?.path ?: JSONObject.NULL )
 		config.put( "login_servers", JSONArray().put( JSONObject().apply {
@@ -45,13 +45,6 @@ object NativeGame {
 		} )
 		file.writeText( config.toString( 2 ) )
 	}
-
-	/** The GRFs in DATA.INI order (the client's first archive wins, like the game's). */
-	private fun grfs( gameDir: File ): List<File> =
-		File( gameDir, "DATA.INI" ).readLines()
-			.mapNotNull { Regex( """^\s*(\d+)\s*=\s*(.+?)\s*$""" ).find( it )?.destructured }
-			.sortedBy { ( order, _ ) -> order.toInt() }
-			.map { ( _, name ) -> File( gameDir, name ) }
 
 	/**
 	 * The game folder's loose data/ files (the English text) as the client wants them. Their names are CP949

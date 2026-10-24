@@ -33,6 +33,8 @@ class MainActivity : Activity() {
 	private var busy = false
 	private var chooseDir = false
 	private var dirError: String? = null
+	/** What the chosen folder lacks but can be played without: shown once, before the game starts */
+	private var dirWarning: String? = null
 
 	override fun onCreate( savedInstanceState: Bundle? ) {
 		super.onCreate( savedInstanceState )
@@ -74,9 +76,16 @@ class MainActivity : Activity() {
 		}
 		val gameDir = GameDir.get( this )
 		if( gameDir == null || chooseDir ) {
-			val message = dirError ?: "Choose your game folder (the one with DATA.INI and the .grf files)."
+			val message = dirError ?: "Choose your game folder: the kRO client folder, the one holding data.grf."
 			screen( message, "Choose folder" ) {
 				startActivityForResult( Intent( Intent.ACTION_OPEN_DOCUMENT_TREE ), REQUEST_DIR )
+			}
+			return
+		}
+		dirWarning?.let { warning ->
+			screen( warning, "Continue" ) {
+				dirWarning = null
+				proceed()
 			}
 			return
 		}
@@ -183,12 +192,14 @@ class MainActivity : Activity() {
 			return
 		val dir = GameDir.fromTree( uri )
 		// onResume follows and shows the next step
-		if( dir != null && GameDir.valid( dir ) ) {
+		val problem = if( dir == null ) "That folder cannot be read. Choose one on the device's storage." else GameDir.problem( dir )
+		if( dir != null && problem == null ) {
 			GameDir.set( this, dir )
 			chooseDir = false
 			dirError = null
+			dirWarning = GameDir.warning( dir )
 		} else {
-			dirError = "No DATA.INI in ${dir ?: uri}. Choose the client folder itself."
+			dirError = problem
 		}
 	}
 

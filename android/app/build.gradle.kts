@@ -20,8 +20,8 @@ android {
 		// MANAGE_EXTERNAL_STORAGE: the game files are read in place from shared storage
 		minSdk = 30
 		targetSdk = 34
-		versionCode = 4
-		versionName = "0.1.3"
+		versionCode = 5
+		versionName = "0.1.4"
 		ndk { abiFilters += "arm64-v8a" }
 	}
 

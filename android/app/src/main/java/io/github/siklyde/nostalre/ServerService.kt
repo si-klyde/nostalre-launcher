@@ -93,7 +93,8 @@ class ServerService : Service() {
 			Proc( "login-server", "libloginserver.so", emptyList(), 6900, needed = true ),
 			Proc( "char-server", "libcharserver.so", emptyList(), 6121, needed = true ),
 			Proc( "map-server", "libmapserver.so", emptyList(), 5121 ),
-			Proc( "grf-server", "libgrfserver.so", listOf( gameDir.path, "8001" ), 8001 ),
+			// the same archives as the game, in its order (GameDir.archives)
+			Proc( "grf-server", "libgrfserver.so", listOf( gameDir.path, "8001" ) + GameDir.archives( gameDir ).map { it.path }, 8001 ),
 		)
 		for( proc in procs ) {
 			if( stopping )
