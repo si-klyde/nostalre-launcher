@@ -97,27 +97,35 @@ and its servers on a PC.
 
 * An Android 11+ device with a 64-bit ARM processor (`arm64-v8a`), for example a Retroid Pocket, an AYN Odin or
   most phones from the last few years
-* About 5 GB of free storage for the game files
+* About 5 GB of free storage
+* A PC, once, to put the game folder together (Python 3; see [English text](#english-text))
 * Your own game files:
-  * kRO's 2025-07-16 full client `data.grf` (GRF version 0x300, unencrypted). nostalRE speaks that client's
-    packet version; older or encrypted archives do not work
-  * ROenglishRE's
-    [`official_data.grf`](https://llchrisll.github.io/ROTPDocs/misc/custom_officials/): the art of monsters, NPCs
-    and items that the servers use and kRO's data lacks
-  * Optional: the client's `BGM/` folder for music
+
+| What | Where it comes from | Needed? | Without it |
+| --- | --- | --- | --- |
+| `data.grf` | kRO's 2025-07-16 full client (GRF version 0x300, unencrypted) | Required | Nothing runs: nostalRE speaks that client's packet version, older or encrypted archives do not work |
+| `official_data.grf` | ROenglishRE ([custom officials](https://llchrisll.github.io/ROTPDocs/misc/custom_officials/)) | Required | About 400 monsters, NPCs and items the servers use are invisible |
+| English `data/` | `scripts/import-english.py` from ROenglishRE | Strongly recommended | Korean text, and many newer items without a name or a look: the 2025 archive's own item table knows only about half the items |
+| `System/`, `SystemEN/`, `data/` | The same kRO 2025 client folder | Recommended | No map title cards, special pop-ups, title names or damage skins |
+| `BGM/` | The same kRO 2025 client folder | Optional | No music |
+| `iteminfo_true.lub` | An official kRO install's `System/itemInfo_true.lub` | Optional | Item looks come from the English table instead of kRO's own |
 
 ### Installation
 
 1. **Download** `nostalre-v….-arm64.apk` from the
    [latest release](https://github.com/si-klyde/nostalre-launcher/releases/latest) (under **Assets**).
-2. **Make a game folder** on the device, for example `nostalRE` in the internal storage, and copy into it:
+2. **Put the game folder together on a PC**: copy the kRO 2025 client folder as it is (it holds `data.grf`,
+   `System/`, `SystemEN/`, `data/` and `BGM/`), add `official_data.grf`, and write `DATA.INI`:
    ```
    nostalRE/
    ├── DATA.INI
    ├── data.grf
    ├── official_data.grf
-   ├── BGM/            (optional)
-   └── data/           (optional: English text, see below)
+   ├── System/
+   ├── SystemEN/
+   ├── BGM/
+   └── data/
+       └── luafiles514/lua files/datainfo/iteminfo_true.lub   (optional, renamed from System/itemInfo_true.lub)
    ```
    `DATA.INI` lists the archives in the order they are read, the first one holding a file wins:
    ```ini
@@ -125,6 +133,8 @@ and its servers on a PC.
    1=data.grf
    2=official_data.grf
    ```
+   Then add the English text into its `data/` folder ([English text](#english-text)), and copy the whole folder
+   to the device, for example to `nostalRE` in the internal storage.
 3. **Install** the APK: open it on the device and allow installs from your file manager or browser when Android
    asks.
 4. **Open nostalRE** and follow the setup:
@@ -142,17 +152,17 @@ and its servers on a PC.
 
 ### English text
 
-kRO's data is in Korean. For English item, skill and map names, build an English `data/` folder on a PC once and
-copy it into the game folder:
+kRO's data is in Korean. The English text comes from the ROenglishRE translation, written into the game folder's
+`data/` by a script (Python 3 with PyYAML, and `luac5.1` for the English item table):
 
 ```sh
 git clone https://github.com/llchrisll/ROenglishRE.git
 git clone --recurse-submodules https://github.com/si-klyde/nostalre-launcher.git
-python3 nostalre-launcher/scripts/import-english.py ROenglishRE   # writes nostalre-launcher/game-data/data/
+python3 nostalre-launcher/scripts/import-english.py ROenglishRE /path/to/nostalRE   # writes /path/to/nostalRE/data/
 ```
 
-It needs Python 3 with PyYAML, and `luac5.1` for the English item table. Copy the resulting `game-data/data/`
-folder into the game folder on the device as `data/`.
+Run it after copying the kRO client folder: it writes over kRO's Korean tables in `data/` with English ones, and
+adds an English item table for the items the 2025 archive's own table lacks.
 
 ### Updating
 
