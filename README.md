@@ -48,7 +48,9 @@ scripts/build-apk.sh          # out/nostalre.apk
 adb install -r out/nostalre.apk
 ```
 
-`--skip-native` reuses the last Android builds of the servers, the bridge and the client.
+`--skip-native` reuses the last Android builds of the servers, the bridge and the client. `--release` builds the
+public, non-debuggable APK signed with the release key, which the builder keeps in `~/.gradle/gradle.properties`
+(see the script); without the key, debug builds use the Android debug key.
 
 ## Tables from rAthena
 
