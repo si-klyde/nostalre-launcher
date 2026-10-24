@@ -1,20 +1,22 @@
 # Game data
 
-For playing nostalRE on the desktop (`scripts/run-nostalre.sh`), put your own game files here. They are not part
-of this repository and are never committed. On Android the app asks for the same folder on the device instead.
+For playing nostalRE on the desktop (`scripts/run-nostalre.sh`), put your own game files here, laid out like the
+Android app's game folder. They are not part of this repository and are never committed.
 
-What nostalRE reads:
+What goes in, where it comes from and what is lost without each piece: see
+[Prerequisites](../README.md#prerequisites) and [Installation](../README.md#installation) in the main README. In
+short, the kRO 2025-07-16 client folder as it is ([WARP0716](https://github.com/CrazyBebop/WARP0716)'s WARPGATE
+downloader fetches it), plus ROenglishRE's `official_data.grf`, a `DATA.INI` and the English text:
 
-- `DATA.INI` with the GRFs it lists, in that order (the first archive holding a file wins):
-  - kRO's 2025-07-16 full client `data.grf` (GRF version 0x300, unencrypted), nostalRE's packet version
-  - for now also ROenglishRE's `official_data.grf`, the art of other servers' monsters, NPCs and items that rAthena's
-    database uses and kRO lacks (https://llchrisll.github.io/ROTPDocs/misc/custom_officials/)
+```
+game-data/
+├── DATA.INI            1=data.grf, 2=official_data.grf
+├── data.grf
+├── official_data.grf
+├── System/
+├── SystemEN/
+├── BGM/
+└── data/               kRO's loose files, then the English text over them
+```
 
-  ```ini
-  [Data]
-  1=data.grf
-  2=official_data.grf
-  ```
-- `BGM/*.mp3`, optional
-- `data/`, optional loose files over the GRFs: the English text written by `scripts/import-english.py` from a
-  ROenglishRE checkout (needs PyYAML, and `luac5.1` for the English item table)
+`scripts/import-english.py <ROenglishRE checkout>` writes the English text into `game-data/data/` by default.

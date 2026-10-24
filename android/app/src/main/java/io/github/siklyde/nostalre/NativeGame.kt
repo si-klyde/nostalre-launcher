@@ -29,6 +29,9 @@ object NativeGame {
 		val config = runCatching { JSONObject( file.readText() ) }.getOrElse { JSONObject() }
 		config.put( "grf_paths", JSONArray( grfs( gameDir ).map { it.path } ) )
 		config.put( "bgm_path", File( gameDir, "BGM" ).path )
+		// kRO's tables beside its archive (System/, SystemEN/: map titles, pop-ups, titles, damage skins), when the
+		// player copied them into the game folder, as scripts/run-nostalre.sh gives a desktop run
+		config.put( "install_dir", gameDir.path )
 		config.put( "data_dir", looseFiles( activity, gameDir )?.path ?: JSONObject.NULL )
 		config.put( "login_servers", JSONArray().put( JSONObject().apply {
 			put( "name", "nostalRE" )
