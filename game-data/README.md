@@ -5,8 +5,8 @@ Android app's game folder. They are not part of this repository and are never co
 
 What goes in, where it comes from and what is lost without each piece: see
 [Prerequisites](../README.md#prerequisites) and [Installation](../README.md#installation) in the main README. In
-short, the kRO 2025-07-16 client folder as it is, plus ROenglishRE's `official_data.grf`, a `DATA.INI` and the
-English text:
+short, the kRO 2025-07-16 client folder as it is ([WARP0716](https://github.com/CrazyBebop/WARP0716)'s WARPGATE
+downloader fetches it), plus ROenglishRE's `official_data.grf`, a `DATA.INI` and the English text:
 
 ```
 game-data/

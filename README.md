@@ -103,19 +103,21 @@ and its servers on a PC.
 
 | What | Where it comes from | Needed? | Without it |
 | --- | --- | --- | --- |
-| `data.grf` | kRO's 2025-07-16 full client (GRF version 0x300, unencrypted) | Required | Nothing runs: nostalRE speaks that client's packet version, older or encrypted archives do not work |
+| `data.grf` | kRO's 2025-07-16 full client (GRF version 0x300, unencrypted), from [WARP0716](https://github.com/CrazyBebop/WARP0716): its README's WARPGATE downloader fetches it | Required | Nothing runs: nostalRE speaks that client's packet version, older or encrypted archives do not work |
 | `official_data.grf` | ROenglishRE ([custom officials](https://llchrisll.github.io/ROTPDocs/misc/custom_officials/)) | Required | About 400 monsters, NPCs and items the servers use are invisible |
 | English `data/` | `scripts/import-english.py` from ROenglishRE | Strongly recommended | Korean text, and many newer items without a name or a look: the 2025 archive's own item table knows only about half the items |
-| `System/`, `SystemEN/`, `data/` | The same kRO 2025 client folder | Recommended | No map title cards, special pop-ups, title names or damage skins |
-| `BGM/` | The same kRO 2025 client folder | Optional | No music |
+| `System/`, `SystemEN/`, `data/` | The same client folder (WARP0716) | Recommended | No map title cards, special pop-ups, title names or damage skins |
+| `BGM/` | The same client folder (WARP0716) | Optional | No music |
 | `iteminfo_true.lub` | An official kRO install's `System/itemInfo_true.lub` | Optional | Item looks come from the English table instead of kRO's own |
 
 ### Installation
 
 1. **Download** `nostalre-v….-arm64.apk` from the
    [latest release](https://github.com/si-klyde/nostalre-launcher/releases/latest) (under **Assets**).
-2. **Put the game folder together on a PC**: copy the kRO 2025 client folder as it is (it holds `data.grf`,
-   `System/`, `SystemEN/`, `data/` and `BGM/`), add `official_data.grf`, and write `DATA.INI`:
+2. **Put the game folder together on a PC**: get the kRO 2025-07-16 full client from [WARP0716](https://github.com/CrazyBebop/WARP0716) (its README's
+   **WARPGATE** downloader, a Windows app, fetches it). Copy the folder it downloads as it is (it holds `data.grf`,
+   `System/`, `SystemEN/`, `data/` and `BGM/`; its `.exe` and `.dll` files are not needed), add `official_data.grf`,
+   and write `DATA.INI`:
    ```
    nostalRE/
    ├── DATA.INI
