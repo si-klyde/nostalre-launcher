@@ -8,6 +8,10 @@
 
 <br />
 <div align="center">
+  <a href="https://github.com/si-klyde/nostalre-launcher">
+    <img src="docs/images/logo.png" alt="nostalRE" width="96" height="96">
+  </a>
+
   <h3 align="center">nostalRE launcher</h3>
 
   <p align="center">
