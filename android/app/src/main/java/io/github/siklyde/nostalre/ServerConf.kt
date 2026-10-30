@@ -106,6 +106,35 @@ object ServerConf {
 		file.writeText( ratesFile( rates( context ) ) )
 	}
 
+	/** A custom NPC the server's npc/scripts_custom.conf loads, which the player may turn off: [file] under npc/custom. */
+	enum class Helper( val file: String, val label: String ) {
+		JOB_MASTER( "jobmaster", "Job Master" ),
+		WARPER( "warper", "Warper" ),
+		HEALER( "healer", "Healer" ),
+		STYLIST( "stylist", "Stylist" ),
+		RESET( "resetnpc", "Reset Girl" ),
+	}
+
+	/** npc/nostalre_off.conf for the helpers turned [off]: scripts_custom.conf imports it after loading them all. */
+	fun helpersFile( off: Set<Helper> ): String = buildString {
+		appendLine( "// Written by the nostalRE app at every server start: the custom NPCs turned off in its settings" )
+		Helper.entries.filter { it in off }.forEach { appendLine( "delnpc: npc/custom/${it.file}.txt" ) }
+	}
+
+	private fun helperPrefs( context: Context ) = context.getSharedPreferences( "helpers", Context.MODE_PRIVATE )
+
+	/** The helpers turned off; all on until the player changes one. */
+	fun helpersOff( context: Context ): Set<Helper> =
+		helperPrefs( context ).let { prefs -> Helper.entries.filter { !prefs.getBoolean( it.file, true ) }.toSet() }
+
+	fun saveHelpersOff( context: Context, off: Set<Helper> ) =
+		helperPrefs( context ).edit().apply { Helper.entries.forEach { putBoolean( it.file, it !in off ) } }.apply()
+
+	/** The saved choice into the servers' npc folder, before every start (an app update unpacks it afresh). */
+	fun writeHelpers( context: Context ) {
+		File( Paths( context ).server, "npc/nostalre_off.conf" ).writeText( helpersFile( helpersOff( context ) ) )
+	}
+
 	/** The map a new Human (or [doram]) character starts on: the first of start_point (start_point_doram). */
 	fun startMap( context: Context, doram: Boolean ): String? =
 		char( context )[if( doram ) "start_point_doram" else "start_point"]?.substringBefore( ',' )?.trim()?.takeIf { it.isNotEmpty() }

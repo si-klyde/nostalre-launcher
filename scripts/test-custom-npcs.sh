@@ -112,11 +112,15 @@ wait 1
 quit
 EOF
 play() { NOSTALRE_CHAR="$char" "$ROOT/scripts/run-nostalre-script.sh" "$1" > "$tmp/run.txt" 2>&1 || true; }
+# NPC dialog lines the last run's client received: 0 means the talk never happened
+said() { grep -ac 'recv PacketZcSayDialog' "$(sed -n 's/^Raw data *//p' "$tmp/run.txt")/client.log" 2>/dev/null || true; }
 
 novice 9
 play "$tmp/talk.txt"
-check "Job Master turns away job level 9 (class $(sql "SELECT class FROM \`char\` WHERE char_id = $id"))" \
-	"$([ "$(sql "SELECT class FROM \`char\` WHERE char_id = $id")" = 0 ] && echo 0 || echo 1)"
+class=$(sql "SELECT class FROM \`char\` WHERE char_id = $id")
+lines=$(said)
+check "Job Master turns away job level 9 (class $class, $lines dialog lines)" \
+	"$([ "$class" = 0 ] && [ "${lines:-0}" -gt 0 ] && echo 0 || echo 1)"
 
 novice 10
 play "$tmp/talk.txt"

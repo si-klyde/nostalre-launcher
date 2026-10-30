@@ -66,4 +66,25 @@ class ServerConfTest {
 	@Test fun stepsGoFromOneToAThousand() {
 		assertEquals( listOf( 1, 2, 3, 5, 10, 25, 50, 100, 250, 500, 1000 ), ServerConf.Rates.STEPS )
 	}
+
+	@Test fun allHelpersOnWritesNoDelnpc() {
+		assertTrue( ServerConf.helpersFile( emptySet() ).lines().none { it.startsWith( "delnpc:" ) } )
+	}
+
+	@Test fun eachHelperOffBecomesADelnpcLine() {
+		val lines = ServerConf.helpersFile( setOf( ServerConf.Helper.JOB_MASTER, ServerConf.Helper.HEALER ) )
+			.lines().filter { it.startsWith( "delnpc:" ) }
+		assertEquals( listOf( "delnpc: npc/custom/jobmaster.txt", "delnpc: npc/custom/healer.txt" ), lines )
+	}
+
+	/** Each helper is one the server loads, and the off file comes after them (delnpc only drops a file already listed). */
+	@Test fun theServerLoadsEveryHelperBeforeTheOffFile() {
+		val conf = File( "../../server/npc/scripts_custom.conf" ).readLines().map { it.substringBefore( "//" ).trim() }
+		val offAt = conf.indexOf( "import: npc/nostalre_off.conf" )
+		assertTrue( "scripts_custom.conf imports npc/nostalre_off.conf", offAt >= 0 )
+		for( helper in ServerConf.Helper.entries ) {
+			val at = conf.indexOf( "npc: npc/custom/${helper.file}.txt" )
+			assertTrue( helper.file, at in 0 until offAt )
+		}
+	}
 }

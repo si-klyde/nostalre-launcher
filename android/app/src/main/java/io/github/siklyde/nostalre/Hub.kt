@@ -14,6 +14,7 @@ import android.view.ViewConfiguration
 import android.widget.CompoundButton
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
 import io.github.siklyde.nostalre.Ui.fit
@@ -32,7 +33,8 @@ import kotlin.math.abs
  *
  * Controller: left/right or L1/R1 step through the line-up, A plays (or makes, on the last stop), X makes, Y deletes,
  * Start opens the settings. Touch: swipe or tap a neighbour to step, and the buttons along the bottom.
- * [onRestart] starts the servers again with new rates (picked in the settings), then the hub selecting a character.
+ * [onRestart] starts the servers again with new rates or helper NPCs (picked in the settings), then the hub selecting a
+ * character.
  */
 class Hub(
 	private val context: Context,
@@ -366,13 +368,27 @@ class Hub(
 		layout.addView( rateRow( "Job EXP", rates.jobExp ) { rates = rates.copy( jobExp = it ) } )
 		layout.addView( rateRow( "Item drops", rates.drop ) { rates = rates.copy( drop = it ) } )
 		layout.addView( rateRow( "Card drops", rates.card ) { rates = rates.copy( card = it ) } )
+		val offBefore = ServerConf.helpersOff( context )
+		val off = offBefore.toMutableSet()
+		layout.addView( Ui.text( context, 14f, Ui.MUTED ).apply {
+			text = "Helper NPCs in the towns. The server restarts with them too."
+			setPadding( 0, Ui.dp( context, 16f ), 0, Ui.dp( context, 4f ) )
+		} )
+		for( helper in ServerConf.Helper.entries )
+			layout.addView( Switch( context ).apply {
+				text = helper.label
+				textSize = 18f
+				isChecked = helper !in off
+				setOnCheckedChangeListener { _, on -> if( on ) off -= helper else off += helper }
+			} )
 		AlertDialog.Builder( context, android.R.style.Theme_DeviceDefault_Dialog_Alert )
 			.setTitle( "Settings" )
-			.setView( layout )
+			.setView( ScrollView( context ).apply { addView( layout ) } )
 			.setPositiveButton( "Done", null )
 			.setOnDismissListener {
-				if( rates != before ) {
+				if( rates != before || off != offBefore ) {
 					ServerConf.saveRates( context, rates )
+					ServerConf.saveHelpersOff( context, off )
 					onRestart( characters.getOrNull( selected )?.id ?: 0 )
 				}
 			}
