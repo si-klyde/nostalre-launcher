@@ -88,6 +88,7 @@ class ServerService : Service() {
 
 	private fun launch( gameDir: File ) {
 		val paths = Paths( this )
+		ServerConf.writeRates( this )
 		val procs = listOf(
 			// char-server needs login-server, map-server needs char-server
 			Proc( "login-server", "libloginserver.so", emptyList(), 6900, needed = true ),

@@ -142,7 +142,7 @@ class MainActivity : Activity() {
 	}
 
 	private fun showHub( selectId: Int = 0 ) {
-		val hub = Hub( this, selectId, { play( it ) }, { showHub( it ) } )
+		val hub = Hub( this, selectId, { play( it ) }, { showHub( it ) }, { restartServers( it ) } )
 		this.hub = hub
 		setContentView( hub.view() )
 	}
@@ -200,6 +200,23 @@ class MainActivity : Activity() {
 			dirWarning = GameDir.warning( dir )
 		} else {
 			dirError = problem
+		}
+	}
+
+	/** Starts the servers again (with new rates): stopped first, until every port is closed, then the hub. */
+	private fun restartServers( selectId: Int ) {
+		val gameDir = GameDir.get( this ) ?: return
+		busy = true
+		screen( "Restarting server…" )
+		stopService( Intent( this, ServerService::class.java ) )
+		thread( name = "restart" ) {
+			while( ServerService.PORTS.any { ServerService.portOpen( it ) } )
+				Thread.sleep( 200 )
+			ServerService.start( this, gameDir )
+			runOnUiThread {
+				busy = false
+				showHub( selectId )
+			}
 		}
 	}
 

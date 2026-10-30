@@ -32,12 +32,14 @@ import kotlin.math.abs
  *
  * Controller: left/right or L1/R1 step through the line-up, A plays (or makes, on the last stop), X makes, Y deletes,
  * Start opens the settings. Touch: swipe or tap a neighbour to step, and the buttons along the bottom.
+ * [onRestart] starts the servers again with new rates (picked in the settings), then the hub selecting a character.
  */
 class Hub(
 	private val context: Context,
 	private val selectId: Int,
 	private val onPlay: ( charId: Int ) -> Unit,
 	private val onChanged: ( selectId: Int ) -> Unit,
+	private val onRestart: ( selectId: Int ) -> Unit,
 ) {
 
 	companion object {
@@ -354,11 +356,56 @@ class Hub(
 				text = "Lets you use @ commands in chat, like @warp and @item. Takes effect the next time you play."
 			} )
 		}
+		val before = ServerConf.rates( context )
+		var rates = before
+		layout.addView( Ui.text( context, 14f, Ui.MUTED ).apply {
+			text = "Server rates. The server restarts with them when you close the settings."
+			setPadding( 0, Ui.dp( context, 16f ), 0, Ui.dp( context, 4f ) )
+		} )
+		layout.addView( rateRow( "Base EXP", rates.baseExp ) { rates = rates.copy( baseExp = it ) } )
+		layout.addView( rateRow( "Job EXP", rates.jobExp ) { rates = rates.copy( jobExp = it ) } )
+		layout.addView( rateRow( "Item drops", rates.drop ) { rates = rates.copy( drop = it ) } )
+		layout.addView( rateRow( "Card drops", rates.card ) { rates = rates.copy( card = it ) } )
 		AlertDialog.Builder( context, android.R.style.Theme_DeviceDefault_Dialog_Alert )
 			.setTitle( "Settings" )
 			.setView( layout )
 			.setPositiveButton( "Done", null )
+			.setOnDismissListener {
+				if( rates != before ) {
+					ServerConf.saveRates( context, rates )
+					onRestart( characters.getOrNull( selected )?.id ?: 0 )
+				}
+			}
 			.let { Ui.show( it ) }
+	}
+
+	/** A rate's row: tap or A for the next step (round to 1x after the last), the D-pad left and right step down and up. */
+	private fun rateRow( label: String, start: Int, onPick: ( Int ) -> Unit ) = Ui.text( context, 18f ).apply {
+		val steps = ServerConf.Rates.STEPS
+		var at = steps.indexOf( start ).coerceAtLeast( 0 )
+		fun show() {
+			text = "$label: ${steps[at]}x"
+		}
+		fun pick( index: Int ) {
+			at = index
+			show()
+			onPick( steps[at] )
+		}
+		show()
+		isFocusable = true
+		background = Ui.focusable( context, 0 )
+		pad( context, 12f, 8f )
+		setOnClickListener { pick( ( at + 1 ) % steps.size ) }
+		setOnKeyListener { _, code, event ->
+			val by = when( code ) {
+				KeyEvent.KEYCODE_DPAD_LEFT -> -1
+				KeyEvent.KEYCODE_DPAD_RIGHT -> 1
+				else -> return@setOnKeyListener false
+			}
+			if( event.action == KeyEvent.ACTION_DOWN )
+				pick( ( at + by ).coerceIn( steps.indices ) )
+			true
+		}
 	}
 
 	/** How [character] looks: the game's last snapshot (with headgear, equipment and mount), else drawn from its sprites. */
