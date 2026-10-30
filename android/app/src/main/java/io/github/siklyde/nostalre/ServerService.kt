@@ -14,6 +14,7 @@ import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 /** Runs the game backend (rAthena's servers, grf-server) as child processes while the app is in use. */
@@ -48,6 +49,20 @@ class ServerService : Service() {
 				}
 		}
 
+		/** Services from their start until every process they started has exited: ports alone miss a server still loading. */
+		private val active = AtomicInteger()
+
+		/** Blocks until the servers have stopped (processes exited, ports closed); false when [timeoutMs] passed first. */
+		fun awaitStopped( timeoutMs: Long = 30_000 ): Boolean {
+			val deadline = System.currentTimeMillis() + timeoutMs
+			while( active.get() > 0 || PORTS.any { portOpen( it ) } ) {
+				if( System.currentTimeMillis() > deadline )
+					return false
+				Thread.sleep( 200 )
+			}
+			return true
+		}
+
 		fun start( context: Context, gameDir: File ) {
 			context.startForegroundService( Intent( context, ServerService::class.java ).putExtra( EXTRA_GAME_DIR, gameDir.path ) )
 		}
@@ -66,8 +81,10 @@ class ServerService : Service() {
 		}
 		startForeground( 1, notification( "Running" ), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE )
 		val gameDir = intent?.getStringExtra( EXTRA_GAME_DIR )
-		if( launcher == null && gameDir != null )
+		if( launcher == null && gameDir != null ) {
+			active.incrementAndGet()
 			launcher = thread( name = "launcher" ) { launch( File( gameDir ) ) }
+		}
 		return START_NOT_STICKY
 	}
 
@@ -82,12 +99,17 @@ class ServerService : Service() {
 			launcher?.join() // may still be starting one
 			val procs = synchronized( running ) { running.toList().asReversed() }
 			procs.forEach { it.second.destroy() } // SIGTERM: rAthena saves and exits
-			procs.forEach { ( _, p ) -> if( !p.waitFor( 10, TimeUnit.SECONDS ) ) p.destroyForcibly() }
+			procs.forEach { ( _, p ) -> if( !p.waitFor( 10, TimeUnit.SECONDS ) ) p.destroyForcibly().waitFor( 5, TimeUnit.SECONDS ) }
+			if( launcher != null )
+				active.decrementAndGet()
 		}
 	}
 
 	private fun launch( gameDir: File ) {
 		val paths = Paths( this )
+		// unwritten (storage full...): the servers start with the rates and NPCs the files already have
+		runCatching { ServerConf.writeRates( this ) }
+		runCatching { ServerConf.writeHelpers( this ) }
 		val procs = listOf(
 			// char-server needs login-server, map-server needs char-server
 			Proc( "login-server", "libloginserver.so", emptyList(), 6900, needed = true ),

@@ -1,7 +1,8 @@
 # Shared paths and settings, sourced by the other scripts.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$ROOT/out"
-RATHENA="$ROOT/server"
+# the rAthena checkout: the server/ submodule, or another one (RATHENA_DIR)
+RATHENA="${RATHENA_DIR:-$ROOT/server}"
 BRIDGE="$ROOT/bridge"
 # the nostalRE checkout: the client/ submodule, or another one (NOSTALRE_DIR)
 CLIENT="${NOSTALRE_DIR:-$ROOT/client}"

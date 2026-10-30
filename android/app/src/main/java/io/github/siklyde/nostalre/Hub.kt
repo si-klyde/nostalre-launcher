@@ -11,10 +11,8 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
-import android.widget.CompoundButton
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.Switch
 import android.widget.TextView
 import io.github.siklyde.nostalre.Ui.fit
 import io.github.siklyde.nostalre.Ui.pad
@@ -31,13 +29,16 @@ import kotlin.math.abs
  * one was made or deleted.
  *
  * Controller: left/right or L1/R1 step through the line-up, A plays (or makes, on the last stop), X makes, Y deletes,
- * Start opens the settings. Touch: swipe or tap a neighbour to step, and the buttons along the bottom.
+ * Start opens the settings ([SettingsScreen]). Touch: swipe or tap a neighbour to step, and the buttons along the bottom.
+ * [onRestart] starts the servers again with new rates or helper NPCs (picked in the settings), then the hub selecting a
+ * character.
  */
 class Hub(
 	private val context: Context,
 	private val selectId: Int,
 	private val onPlay: ( charId: Int ) -> Unit,
 	private val onChanged: ( selectId: Int ) -> Unit,
+	private val onRestart: ( selectId: Int ) -> Unit,
 ) {
 
 	companion object {
@@ -56,6 +57,7 @@ class Hub(
 	private var hairLimits: ServerConf.Hair? = null
 	private var startPlaces = "" to ""
 	private var creator: Creator? = null
+	private var settingsScreen: SettingsScreen? = null
 	private val looks = mutableMapOf<Int, Bitmap?>()
 
 	private val root = FrameLayout( context )
@@ -260,6 +262,15 @@ class Hub(
 	}
 
 	fun onKey( event: KeyEvent ): Boolean {
+		settingsScreen?.let { screen ->
+			val leave = event.keyCode in listOf( KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_MENU )
+			if( !leave )
+				return false
+			// on the press: the release of the Start press that opened the screen must not close it again
+			if( event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 )
+				screen.close()
+			return true
+		}
 		creator?.let { creator ->
 			if( event.keyCode == KeyEvent.KEYCODE_BACK || event.keyCode == KeyEvent.KEYCODE_BUTTON_B ) {
 				if( event.action == KeyEvent.ACTION_UP )
@@ -319,46 +330,38 @@ class Hub(
 		}
 	}
 
+	/** Start or Settings: the settings screen, once the account's GM flag is read (off the main thread). */
 	private fun settings() {
+		if( creator != null || settingsScreen != null )
+			return
 		thread( name = "settings" ) {
 			val gm = runCatching { Account.isGm( context ) }.getOrDefault( false )
-			root.post { settings( gm ) }
+			root.post { openSettings( gm ) }
 		}
 	}
 
-	private fun settings( isGm: Boolean ) {
-		val gm = Switch( context ).apply {
-			text = "GM commands"
-			textSize = 18f
-			isChecked = isGm
-			setOnCheckedChangeListener( object : CompoundButton.OnCheckedChangeListener {
-				override fun onCheckedChanged( button: CompoundButton, checked: Boolean ) {
-					val listener = this
-					thread( name = "gm" ) {
-						if( runCatching { Account.setGm( context, checked ) }.isFailure )
-							button.post {
-								// not saved: show what the account still has
-								button.setOnCheckedChangeListener( null )
-								button.isChecked = !checked
-								button.setOnCheckedChangeListener( listener )
-							}
-					}
-				}
-			} )
-		}
-		val layout = LinearLayout( context ).apply {
-			orientation = LinearLayout.VERTICAL
-			pad( context, 24f, 16f )
-			addView( gm )
-			addView( Ui.text( context, 14f, Ui.MUTED ).apply {
-				text = "Lets you use @ commands in chat, like @warp and @item. Takes effect the next time you play."
-			} )
-		}
-		AlertDialog.Builder( context, android.R.style.Theme_DeviceDefault_Dialog_Alert )
-			.setTitle( "Settings" )
-			.setView( layout )
-			.setPositiveButton( "Done", null )
-			.let { Ui.show( it ) }
+	private fun openSettings( isGm: Boolean ) {
+		if( creator != null || settingsScreen != null )
+			return
+		val screen = SettingsScreen( context, isGm ) { changed -> closeSettings( changed ) }
+		settingsScreen = screen
+		select.visibility = View.GONE
+		root.addView( screen.view() )
+		screen.focusFirst()
+	}
+
+	/** Back to the line-up; rates or helpers [changed]: the servers restart with them first. */
+	private fun closeSettings( changed: Boolean ) {
+		settingsScreen = null
+		root.removeAllViews()
+		root.addView( select )
+		select.visibility = View.VISIBLE
+		// the controller's focus to the hub itself: a ring left on the Settings button reads as what A does (A plays)
+		root.isFocusable = true
+		root.defaultFocusHighlightEnabled = false
+		root.requestFocus()
+		if( changed )
+			onRestart( characters.getOrNull( selected )?.id ?: 0 )
 	}
 
 	/** How [character] looks: the game's last snapshot (with headgear, equipment and mount), else drawn from its sprites. */

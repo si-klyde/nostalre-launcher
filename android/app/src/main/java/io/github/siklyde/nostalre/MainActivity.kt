@@ -142,7 +142,7 @@ class MainActivity : Activity() {
 	}
 
 	private fun showHub( selectId: Int = 0 ) {
-		val hub = Hub( this, selectId, { play( it ) }, { showHub( it ) } )
+		val hub = Hub( this, selectId, { play( it ) }, { showHub( it ) }, { restartServers( it ) } )
 		this.hub = hub
 		setContentView( hub.view() )
 	}
@@ -203,6 +203,26 @@ class MainActivity : Activity() {
 		}
 	}
 
+	/** Starts the servers again (with new rates) once the old ones have exited, then the hub; a retry screen if they hang. */
+	private fun restartServers( selectId: Int ) {
+		val gameDir = GameDir.get( this ) ?: return
+		busy = true
+		screen( "Restarting server…" )
+		stopService( Intent( this, ServerService::class.java ) )
+		thread( name = "restart" ) {
+			val stopped = ServerService.awaitStopped()
+			if( stopped )
+				ServerService.start( this, gameDir )
+			runOnUiThread {
+				busy = false
+				if( stopped )
+					showHub( selectId )
+				else
+					screen( "The server did not stop. Logs: ${Paths( this ).logs}", "Retry" ) { restartServers( selectId ) }
+			}
+		}
+	}
+
 	/** Stops the servers (grf-server must reopen with the new folder) and shows setup again. */
 	private fun closeGame() {
 		chooseDir = true
@@ -210,8 +230,9 @@ class MainActivity : Activity() {
 		screen( "Stopping servers…" )
 		stopService( Intent( this, ServerService::class.java ) )
 		thread( name = "stop" ) {
-			while( ServerService.PORTS.any { ServerService.portOpen( it ) } )
-				Thread.sleep( 200 )
+			// as long as it takes: proceed() starts them again
+			while( !ServerService.awaitStopped() )
+				continue
 			runOnUiThread {
 				busy = false
 				proceed()
