@@ -11,11 +11,8 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
-import android.widget.CompoundButton
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.Switch
 import android.widget.TextView
 import io.github.siklyde.nostalre.Ui.fit
 import io.github.siklyde.nostalre.Ui.pad
@@ -32,7 +29,7 @@ import kotlin.math.abs
  * one was made or deleted.
  *
  * Controller: left/right or L1/R1 step through the line-up, A plays (or makes, on the last stop), X makes, Y deletes,
- * Start opens the settings. Touch: swipe or tap a neighbour to step, and the buttons along the bottom.
+ * Start opens the settings ([SettingsScreen]). Touch: swipe or tap a neighbour to step, and the buttons along the bottom.
  * [onRestart] starts the servers again with new rates or helper NPCs (picked in the settings), then the hub selecting a
  * character.
  */
@@ -60,6 +57,7 @@ class Hub(
 	private var hairLimits: ServerConf.Hair? = null
 	private var startPlaces = "" to ""
 	private var creator: Creator? = null
+	private var settingsScreen: SettingsScreen? = null
 	private val looks = mutableMapOf<Int, Bitmap?>()
 
 	private val root = FrameLayout( context )
@@ -264,6 +262,15 @@ class Hub(
 	}
 
 	fun onKey( event: KeyEvent ): Boolean {
+		settingsScreen?.let { screen ->
+			val leave = event.keyCode in listOf( KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_MENU )
+			if( !leave )
+				return false
+			// on the press: the release of the Start press that opened the screen must not close it again
+			if( event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 )
+				screen.close()
+			return true
+		}
 		creator?.let { creator ->
 			if( event.keyCode == KeyEvent.KEYCODE_BACK || event.keyCode == KeyEvent.KEYCODE_BUTTON_B ) {
 				if( event.action == KeyEvent.ACTION_UP )
@@ -323,105 +330,38 @@ class Hub(
 		}
 	}
 
+	/** Start or Settings: the settings screen, once the account's GM flag is read (off the main thread). */
 	private fun settings() {
+		if( creator != null || settingsScreen != null )
+			return
 		thread( name = "settings" ) {
 			val gm = runCatching { Account.isGm( context ) }.getOrDefault( false )
-			root.post { settings( gm ) }
+			root.post { openSettings( gm ) }
 		}
 	}
 
-	private fun settings( isGm: Boolean ) {
-		val gm = Switch( context ).apply {
-			text = "GM commands"
-			textSize = 18f
-			isChecked = isGm
-			setOnCheckedChangeListener( object : CompoundButton.OnCheckedChangeListener {
-				override fun onCheckedChanged( button: CompoundButton, checked: Boolean ) {
-					val listener = this
-					thread( name = "gm" ) {
-						if( runCatching { Account.setGm( context, checked ) }.isFailure )
-							button.post {
-								// not saved: show what the account still has
-								button.setOnCheckedChangeListener( null )
-								button.isChecked = !checked
-								button.setOnCheckedChangeListener( listener )
-							}
-					}
-				}
-			} )
-		}
-		val layout = LinearLayout( context ).apply {
-			orientation = LinearLayout.VERTICAL
-			pad( context, 24f, 16f )
-			addView( gm )
-			addView( Ui.text( context, 14f, Ui.MUTED ).apply {
-				text = "Lets you use @ commands in chat, like @warp and @item. Takes effect the next time you play."
-			} )
-		}
-		val before = ServerConf.rates( context )
-		var rates = before
-		layout.addView( Ui.text( context, 14f, Ui.MUTED ).apply {
-			text = "Server rates. The server restarts with them when you close the settings."
-			setPadding( 0, Ui.dp( context, 16f ), 0, Ui.dp( context, 4f ) )
-		} )
-		layout.addView( rateRow( "Base EXP", rates.baseExp ) { rates = rates.copy( baseExp = it ) } )
-		layout.addView( rateRow( "Job EXP", rates.jobExp ) { rates = rates.copy( jobExp = it ) } )
-		layout.addView( rateRow( "Item drops", rates.drop ) { rates = rates.copy( drop = it ) } )
-		layout.addView( rateRow( "Card drops", rates.card ) { rates = rates.copy( card = it ) } )
-		val offBefore = ServerConf.helpersOff( context )
-		val off = offBefore.toMutableSet()
-		layout.addView( Ui.text( context, 14f, Ui.MUTED ).apply {
-			text = "Helper NPCs in the towns. The server restarts with them too."
-			setPadding( 0, Ui.dp( context, 16f ), 0, Ui.dp( context, 4f ) )
-		} )
-		for( helper in ServerConf.Helper.entries )
-			layout.addView( Switch( context ).apply {
-				text = helper.label
-				textSize = 18f
-				isChecked = helper !in off
-				setOnCheckedChangeListener { _, on -> if( on ) off -= helper else off += helper }
-			} )
-		AlertDialog.Builder( context, android.R.style.Theme_DeviceDefault_Dialog_Alert )
-			.setTitle( "Settings" )
-			.setView( ScrollView( context ).apply { addView( layout ) } )
-			.setPositiveButton( "Done", null )
-			.setOnDismissListener {
-				if( rates != before || off != offBefore ) {
-					ServerConf.saveRates( context, rates )
-					ServerConf.saveHelpersOff( context, off )
-					onRestart( characters.getOrNull( selected )?.id ?: 0 )
-				}
-			}
-			.let { Ui.show( it ) }
+	private fun openSettings( isGm: Boolean ) {
+		if( creator != null || settingsScreen != null )
+			return
+		val screen = SettingsScreen( context, isGm ) { changed -> closeSettings( changed ) }
+		settingsScreen = screen
+		select.visibility = View.GONE
+		root.addView( screen.view() )
+		screen.focusFirst()
 	}
 
-	/** A rate's row: tap or A for the next step (round to 1x after the last), the D-pad left and right step down and up. */
-	private fun rateRow( label: String, start: Int, onPick: ( Int ) -> Unit ) = Ui.text( context, 18f ).apply {
-		val steps = ServerConf.Rates.STEPS
-		var at = steps.indexOf( start ).coerceAtLeast( 0 )
-		fun show() {
-			text = "$label: ${steps[at]}x"
-		}
-		fun pick( index: Int ) {
-			at = index
-			show()
-			onPick( steps[at] )
-		}
-		show()
-		isFocusable = true
-		background = Ui.focusable( context, 0 )
-		pad( context, 12f, 8f )
-		setOnClickListener { pick( ( at + 1 ) % steps.size ) }
-		setOnKeyListener { _, code, event ->
-			val by = when( code ) {
-				KeyEvent.KEYCODE_DPAD_LEFT -> -1
-				KeyEvent.KEYCODE_DPAD_RIGHT -> 1
-				else -> return@setOnKeyListener false
-			}
-			if( event.action == KeyEvent.ACTION_DOWN )
-				pick( ( at + by ).coerceIn( steps.indices ) )
-			true
-		}
+	/** Back to the line-up; rates or helpers [changed]: the servers restart with them first. */
+	private fun closeSettings( changed: Boolean ) {
+		settingsScreen = null
+		root.removeAllViews()
+		root.addView( select )
+		select.visibility = View.VISIBLE
+		// the controller's focus to the hub itself: a ring left on the Settings button reads as what A does (A plays)
+		root.isFocusable = true
+		root.defaultFocusHighlightEnabled = false
+		root.requestFocus()
+		if( changed )
+			onRestart( characters.getOrNull( selected )?.id ?: 0 )
 	}
 
 	/** How [character] looks: the game's last snapshot (with headgear, equipment and mount), else drawn from its sprites. */
