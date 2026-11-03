@@ -108,7 +108,7 @@ class ServerService : Service() {
 	private fun launch( gameDir: File ) {
 		val paths = Paths( this )
 		// unwritten (storage full...): the servers start with the rates and NPCs the files already have
-		runCatching { ServerConf.writeRates( this ) }
+		runCatching { ServerConf.writeBattle( this ) }
 		runCatching { ServerConf.writeHelpers( this ) }
 		val procs = listOf(
 			// char-server needs login-server, map-server needs char-server

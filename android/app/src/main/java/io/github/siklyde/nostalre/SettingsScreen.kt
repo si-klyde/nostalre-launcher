@@ -11,9 +11,9 @@ import io.github.siklyde.nostalre.Ui.pad
 import kotlin.concurrent.thread
 
 /**
- * The hub's settings, a screen like character creation's: the servers' rates and town helpers ([ServerConf]), and
- * GM commands ([Account]). GM commands save at once; rates and helpers when the screen closes, [onClose] told whether
- * they changed (the servers restart with them).
+ * The hub's settings, a screen like character creation's: the servers' rates, world and town helpers ([ServerConf]),
+ * and GM commands ([Account]). GM commands save at once; the rest when the screen closes, [onClose] told whether it
+ * changed (the servers restart with it).
  *
  * Controller: the D-pad moves between choices, A sets the one it is on, B or Start goes back ([Hub]). Touch: tap.
  */
@@ -24,11 +24,13 @@ class SettingsScreen(
 ) {
 	private val ratesBefore: ServerConf.Rates = ServerConf.rates( context )
 	private var rates: ServerConf.Rates = ratesBefore
+	private val worldBefore: ServerConf.World = ServerConf.world( context )
+	private var world: ServerConf.World = worldBefore
 	private val offBefore: Set<ServerConf.Helper> = ServerConf.helpersOff( context )
 	private val off: MutableSet<ServerConf.Helper> = offBefore.toMutableSet()
 	private var gm = isGm
 
-	private val changed: Boolean get() = rates != ratesBefore || off != offBefore
+	private val changed: Boolean get() = rates != ratesBefore || world != worldBefore || off != offBefore
 
 	private val help = Ui.text( context, 13f ).fit( 10, 13 )
 	private val helpersOn = Ui.text( context, 11f, Ui.DIM )
@@ -48,7 +50,18 @@ class SettingsScreen(
 				{ rates.drop } ) { rates = rates.copy( drop = it ) } )
 			addView( rateRow( "Card drops", "How often monsters drop their cards.",
 				{ rates.card } ) { rates = rates.copy( card = it ) } )
-			addView( section( "ACCOUNT" ).apply { ( layoutParams as LinearLayout.LayoutParams ).topMargin = Ui.dp( context, 10f ) } )
+			addView( section( "WORLD" ).spaced() )
+			addView( toggleRow( "AI players", "Other adventurers who hunt, chat and sell around you. Only on the map you are on.",
+				{ world.ai } ) { world = world.copy( ai = it ) } )
+			addView( stepRow( "Max AI players", "The most AI players at once, in the whole world. Fewer is lighter on the phone.",
+				ServerConf.World.MAX_STEPS, ServerConf.World().maxShells, { "$it" }, { world.maxShells } ) { world = world.copy( maxShells = it ) } )
+			addView( stepRow( "How busy", "How many AI players a map gets, against its usual crowd.",
+				ServerConf.World.DENSITY_STEPS, ServerConf.World().density, { "$it%" }, { world.density } ) { world = world.copy( density = it ) } )
+			addView( stepRow( "Monsters", "How many monsters each map has, against the official count.",
+				ServerConf.World.MONSTER_STEPS, ServerConf.World().monsters, { "$it%" }, { world.monsters } ) { world = world.copy( monsters = it ) } )
+			addView( stepRow( "Respawn speed", "How fast killed monsters come back, times the official speed. Not MVPs or plants.",
+				ServerConf.World.RESPAWN_STEPS, ServerConf.World().respawn, { "${it}x" }, { world.respawn } ) { world = world.copy( respawn = it ) } )
+			addView( section( "ACCOUNT" ).spaced() )
 			addView( toggleRow( "GM commands", "@ commands in chat, like @warp and @item. Saved now; from your next game.",
 				{ gm } ) { setGm( it ) } )
 		}
@@ -60,7 +73,7 @@ class SettingsScreen(
 					if( on ) off -= helper else off += helper
 				} )
 			addView( Ui.text( context, 12f, Ui.DIM ).apply {
-				text = "Rates and helpers take effect when you leave this screen: the server restarts with them."
+				text = "Rates, world and helpers take effect when you leave this screen: the server restarts with them."
 				setPadding( 0, Ui.dp( context, 8f ), 0, 0 )
 			} )
 		}
@@ -91,6 +104,7 @@ class SettingsScreen(
 	fun close() {
 		if( changed ) {
 			ServerConf.saveRates( context, rates )
+			ServerConf.saveWorld( context, world )
 			ServerConf.saveHelpersOff( context, off )
 		}
 		onClose( changed )
@@ -123,8 +137,14 @@ class SettingsScreen(
 	}
 
 	/** A rate: its name, then ‹ the multiple › (the steps of [ServerConf.Rates.STEPS]). */
-	private fun rateRow( label: String, about: String, get: () -> Int, set: ( Int ) -> Unit ): View {
-		val steps = ServerConf.Rates.STEPS
+	private fun rateRow( label: String, about: String, get: () -> Int, set: ( Int ) -> Unit ) =
+		stepRow( label, about, ServerConf.Rates.STEPS, 1, { "${it}x" }, get, set )
+
+	/** A choice of [steps]: its name, then ‹ the value as [show]s it ›, highlighted off the [usual] one. */
+	private fun stepRow(
+		label: String, about: String, steps: List<Int>, usual: Int, show: ( Int ) -> String,
+		get: () -> Int, set: ( Int ) -> Unit,
+	): View {
 		val value = Ui.text( context, 17f, typeface = Ui.bold( context ) ).apply { gravity = Gravity.CENTER }
 		fun step( by: Int ) {
 			val at = ( steps.indexOf( get() ).coerceAtLeast( 0 ) + by ).coerceIn( steps.indices )
@@ -137,8 +157,8 @@ class SettingsScreen(
 		val up = arrow( "›", about ) { step( 1 ) }
 		refreshers += {
 			val v = get()
-			value.text = "${v}x"
-			value.setTextColor( if( v == 1 ) Ui.PARCHMENT else Ui.ACCENT )
+			value.text = show( v )
+			value.setTextColor( if( v == usual ) Ui.PARCHMENT else Ui.ACCENT )
 			down.alpha = if( v == steps.first() ) 0.35f else 1f
 			up.alpha = if( v == steps.last() ) 0.35f else 1f
 		}
@@ -197,6 +217,9 @@ class SettingsScreen(
 	private fun section( label: String, extra: View? = null ) = Ui.section( context, label, extra ).apply {
 		layoutParams = LinearLayout.LayoutParams( -1, -2 ).apply { bottomMargin = Ui.dp( context, 2f ) }
 	}
+
+	/** A section under another: space above it. */
+	private fun View.spaced() = apply { ( layoutParams as LinearLayout.LayoutParams ).topMargin = Ui.dp( context, 10f ) }
 
 	private fun helperHelp( helper: ServerConf.Helper ) = when( helper ) {
 		ServerConf.Helper.JOB_MASTER -> "Job Master, in Prontera: changes your job once you reach the levels, no quest."

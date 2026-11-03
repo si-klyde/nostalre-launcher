@@ -7,9 +7,11 @@
 #        survives a restart
 #   s2   phone tuning: shells only where the player is, released after the grace window (20 s here), density
 #        scales the crowd, buying from a shell vendor logs no shell row, wander skips maps nobody is on
+#   s3   the app's world settings (ServerConf.battleFile keys) reach the server: shell cap in the boot line,
+#        mob_count_rate in the monsters the boot loads
 # Needs: map/char/login servers built from the engine branch (POP_BIN, default out/pop/bin:
 #   RATHENA_DIR=<rathena-nostalre> with build-server.sh, or any host build) and the client checkout (the probe).
-# Usage: scripts/test-population.sh [off|on|s2|all]   (RATHENA_DIR=<server checkout>, POP_BIN=<bin dir>)
+# Usage: scripts/test-population.sh [off|on|s2|s3|all]   (RATHENA_DIR=<server checkout>, POP_BIN=<bin dir>)
 set -euo pipefail
 source "$(dirname "$0")/common.sh"
 
@@ -182,9 +184,9 @@ if [ "$what" = s2 ] || [ "$what" = all ]; then
 	p1=$(found "$tmp/s2.txt" prontera 1); p2=$(found "$tmp/s2.txt" prontera 2); p3=$(found "$tmp/s2.txt" prontera 3)
 	f1=$(found "$tmp/s2.txt" prt_fild08 1); f2=$(found "$tmp/s2.txt" prt_fild08 2)
 	examined=$(grep -aoP 'Avg shells examined/walked *: \K[0-9.]+' "$tmp/s2.txt" | head -1 || true)
-	# @who comes first: a shell spawned in between can only raise the prontera count
-	check "AC1 all shells on the player's map: @who ${total:-?} <= prontera ${p1:-?}, more than the player" \
-		"$(yes_no '[ -n "$total" ] && [ -n "$p1" ] && [ "$total" -le "$p1" ] && [ "$total" -gt 1 ]')"
+	# @who comes first, @whomap a moment later: a shell may spawn, die or be released in between (+-2)
+	check "AC1 all shells on the player's map: @who ${total:-?} ~ prontera ${p1:-?} (+-2), more than the player" \
+		"$(yes_no '[ -n "$total" ] && [ -n "$p1" ] && [ "$total" -le $((p1 + 2)) ] && [ "$total" -gt 1 ]')"
 	check "AC3 prontera keeps its shells 3 s after leaving (grace): ${p2:-?}" "$(yes_no '[ "${p2:-0}" -gt 0 ]')"
 	check "AC6 wander examines only the player's map: avg ${examined:-?} <= prt_fild08 shells $(( ${f1:-1} - 1 ))" \
 		"$(yes_no '[ -n "$examined" ] && awk "BEGIN { exit !($examined <= ${f1:-1} - 1) }"')"
@@ -218,6 +220,20 @@ if [ "$what" = s2 ] || [ "$what" = all ]; then
 		check "AC5 a shell vendor's shop sign on prt_mk" 1
 	fi
 	sql "UPDATE \`char\` SET last_map = 'prontera', last_x = 156, last_y = 191 WHERE char_id = $id"
+fi
+
+if [ "$what" = s3 ] || [ "$what" = all ]; then
+	echo "== s3 app world settings"
+	# the lines ServerConf.battleFile writes (ServerConfTest checks the app side)
+	start_servers 1 "population_engine_max_count: 50" "population_engine_density_pct: 50"
+	check "AC5 max 50 in the boot line" "$(yes_no 'grep -aq "Population engine: on (max 50 shells)" "$logs/map.log"')"
+
+	# the boot's monster count: npc.cpp scales each spawn line of more than one by mob_count_rate
+	cached() { grep -aoP "'\K\d+(?=' Mobs Cached)" "$logs/map.log" | tail -1 || true; }
+	start_servers 0 "mob_count_rate: 100"; m1=$(cached)
+	start_servers 0 "mob_count_rate: 200"; m2=$(cached)
+	check "AC5 mob_count_rate 200: ${m2:-?} monsters vs ${m1:-?} at 100 (want 1.9-2x)" \
+		"$(yes_no '[ -n "$m1" ] && [ -n "$m2" ] && [ $((m2 * 100)) -ge $((m1 * 190)) ] && [ $((m2 * 100)) -le $((m1 * 200)) ]')"
 fi
 
 echo "logs: $logs  probe output: kept only on failure"
