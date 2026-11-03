@@ -56,6 +56,7 @@
     <li><a href="#license">License</a></li>
     <li><a href="#contact">Contact</a></li>
     <li><a href="#acknowledgments">Acknowledgments</a></li>
+    <li><a href="#support">Support</a></li>
   </ol>
 </details>
 
@@ -313,6 +314,15 @@ Project link: [https://github.com/si-klyde/nostalre-launcher](https://github.com
 
 AI tools assist with implementation, debugging, tests and documentation here, as in nostalRE. Changes are built,
 tested and checked on a device before they are released.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Support
+
+<div align="center">
+  <p>If nostalRE brought back some good memories, a coffee helps keep it going.</p>
+  <a href="https://ko-fi.com/siklyde"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support me on Ko-fi"></a>
+</div>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
