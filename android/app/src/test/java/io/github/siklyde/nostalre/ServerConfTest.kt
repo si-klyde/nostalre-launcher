@@ -19,9 +19,64 @@ class ServerConfTest {
 		"item_rate_mvp", "item_rate_adddrop", "item_group_rate", "item_rate_treasure",
 	)
 	private val cardKeys = listOf( "item_rate_card", "item_rate_card_boss", "item_rate_card_mvp" )
+	private val worldKeys = listOf(
+		"population_engine_enable", "population_engine_max_count", "population_engine_density_pct",
+		"mob_count_rate", "mob_spawn_delay",
+	)
+
+	private fun world( world: ServerConf.World ) = parse( ServerConf.battleFile( ServerConf.Rates(), world ) )
+
+	@Test fun noSavedWorldMeansShellsOnAtTwoHundredAndOfficialMonsters() {
+		val conf = world( ServerConf.World.from( emptyMap<String, Any>() ) )
+		assertEquals( "1", conf["population_engine_enable"] )
+		assertEquals( "200", conf["population_engine_max_count"] )
+		assertEquals( "100", conf["population_engine_density_pct"] )
+		assertEquals( "100", conf["mob_count_rate"] )
+		assertEquals( "100", conf["mob_spawn_delay"] )
+		assertEquals( "100", conf["base_exp_rate"] )
+	}
+
+	@Test fun eachWorldPickGoesToItsOwnKey() {
+		val conf = world( ServerConf.World( ai = false, maxShells = 500, density = 50, monsters = 300, respawn = 10 ) )
+		assertEquals( "0", conf["population_engine_enable"] )
+		assertEquals( "500", conf["population_engine_max_count"] )
+		assertEquals( "50", conf["population_engine_density_pct"] )
+		assertEquals( "300", conf["mob_count_rate"] )
+		assertEquals( "10", conf["mob_spawn_delay"] )
+	}
+
+	@Test fun respawnSpeedIsTheDelayDivided() {
+		val delays = ServerConf.World.RESPAWN_STEPS.map { world( ServerConf.World( respawn = it ) )["mob_spawn_delay"] }
+		assertEquals( listOf( "100", "50", "33", "20", "10" ), delays )
+	}
+
+	@Test fun worldStepsAsPlanned() {
+		assertEquals( listOf( 50, 100, 200, 300, 500 ), ServerConf.World.MAX_STEPS )
+		assertEquals( listOf( 50, 100, 150, 200, 300 ), ServerConf.World.DENSITY_STEPS )
+		assertEquals( listOf( 50, 100, 150, 200, 300 ), ServerConf.World.MONSTER_STEPS )
+		assertEquals( listOf( 1, 2, 3, 5, 10 ), ServerConf.World.RESPAWN_STEPS )
+	}
+
+	/** The ranges in the server's battle config table (src/custom/battle_config_init.inc): out of range is ignored. */
+	@Test fun everyWorldStepIsInTheServersRange() {
+		assertTrue( ServerConf.World.MAX_STEPS.all { it in 1..30000 } )
+		assertTrue( ServerConf.World.DENSITY_STEPS.all { it in 10..300 } )
+		assertTrue( ServerConf.World.MONSTER_STEPS.all { it >= 0 } )
+		assertTrue( ServerConf.World.RESPAWN_STEPS.all { 100 / it >= 0 } )
+	}
+
+	@Test fun savedWorldReadsBack() {
+		val world = ServerConf.World( ai = false, maxShells = 50, density = 300, monsters = 150, respawn = 5 )
+		assertEquals( world, ServerConf.World.from( world.toMap() ) )
+	}
+
+	@Test fun aWorldPickOffTheStepsReadsAsDefault() {
+		val saved = mapOf( "max_shells" to 7, "density" to 999, "monsters" to "x", "respawn" to 4 )
+		assertEquals( ServerConf.World(), ServerConf.World.from( saved ) )
+	}
 
 	@Test fun officialRatesWriteOneHundredEverywhere() {
-		val conf = parse( ServerConf.ratesFile( ServerConf.Rates() ) )
+		val conf = parse( ServerConf.battleFile( ServerConf.Rates(), ServerConf.World() ) )
 		assertEquals( "100", conf["base_exp_rate"] )
 		assertEquals( "100", conf["job_exp_rate"] )
 		assertEquals( "100", conf["mvp_exp_rate"] )
@@ -30,7 +85,7 @@ class ServerConfTest {
 	}
 
 	@Test fun eachRateGoesToItsOwnKeys() {
-		val conf = parse( ServerConf.ratesFile( ServerConf.Rates( baseExp = 10, jobExp = 3, drop = 5, card = 1000 ) ) )
+		val conf = parse( ServerConf.battleFile( ServerConf.Rates( baseExp = 10, jobExp = 3, drop = 5, card = 1000 ), ServerConf.World() ) )
 		assertEquals( "1000", conf["base_exp_rate"] )
 		assertEquals( "1000", conf["mvp_exp_rate"] )
 		assertEquals( "300", conf["job_exp_rate"] )
@@ -43,9 +98,10 @@ class ServerConfTest {
 	/** Every key written is one the server's own battle confs set (a typo would be ignored by rAthena, silently). */
 	@Test fun everyKeyIsARealSetting() {
 		val battle = File( "../../server/conf/battle" )
-		val known = parse( File( battle, "exp.conf" ).readText() ).keys + parse( File( battle, "drops.conf" ).readText() ).keys
-		val written = parse( ServerConf.ratesFile( ServerConf.Rates( 2, 2, 2, 2 ) ) ).keys
-		assertEquals( 3 + dropKeys.size + cardKeys.size, written.size )
+		val known = listOf( "exp.conf", "drops.conf", "population_engine.conf", "monster.conf" )
+			.flatMap { parse( File( battle, it ).readText() ).keys }.toSet()
+		val written = parse( ServerConf.battleFile( ServerConf.Rates( 2, 2, 2, 2 ), ServerConf.World() ) ).keys
+		assertEquals( 3 + dropKeys.size + cardKeys.size + worldKeys.size, written.size )
 		for( key in written )
 			assertTrue( key, key in known )
 	}

@@ -81,15 +81,61 @@ object ServerConf {
 	)
 	private val CARD_KEYS = listOf( "item_rate_card", "item_rate_card_boss", "item_rate_card_mvp" )
 
-	/** conf/import/battle_conf.txt for [rates]: rAthena's rates are percents, 100 for 1x. */
-	fun ratesFile( rates: Rates ): String = buildString {
-		appendLine( "// Written by the nostalRE app at every server start: the rates picked in its settings" )
-		fun line( key: String, times: Int ) = appendLine( "$key: ${times * 100}" )
-		line( "base_exp_rate", rates.baseExp )
-		line( "mvp_exp_rate", rates.baseExp )
-		line( "job_exp_rate", rates.jobExp )
-		DROP_KEYS.forEach { line( it, rates.drop ) }
-		CARD_KEYS.forEach { line( it, rates.card ) }
+	/**
+	 * The world the servers run, picked in the hub's settings: AI players (the Population Engine's shells) on or off,
+	 * how many at most, how busy a map gets (percent of its spawn table), and the monsters: how many per map (percent)
+	 * and how fast they come back ([respawn] times).
+	 */
+	data class World(
+		val ai: Boolean = true,
+		val maxShells: Int = 200,
+		val density: Int = 100,
+		val monsters: Int = 100,
+		val respawn: Int = 1,
+	) {
+		fun toMap(): Map<String, Any> = mapOf(
+			"ai" to ai, "max_shells" to maxShells, "density" to density, "monsters" to monsters, "respawn" to respawn,
+		)
+
+		companion object {
+			val MAX_STEPS = listOf( 50, 100, 200, 300, 500 )
+			val DENSITY_STEPS = listOf( 50, 100, 150, 200, 300 )
+			val MONSTER_STEPS = listOf( 50, 100, 150, 200, 300 )
+			val RESPAWN_STEPS = listOf( 1, 2, 3, 5, 10 )
+
+			/** Read back from [toMap]'s keys (the saved picks); a missing or unknown one is the default. */
+			fun from( saved: Map<String, *> ): World {
+				val default = World()
+				fun pick( key: String, steps: List<Int>, fallback: Int ) = ( saved[key] as? Int )?.takeIf { it in steps } ?: fallback
+				return World(
+					saved["ai"] as? Boolean ?: default.ai,
+					pick( "max_shells", MAX_STEPS, default.maxShells ),
+					pick( "density", DENSITY_STEPS, default.density ),
+					pick( "monsters", MONSTER_STEPS, default.monsters ),
+					pick( "respawn", RESPAWN_STEPS, default.respawn ),
+				)
+			}
+		}
+	}
+
+	/**
+	 * conf/import/battle_conf.txt for [rates] and [world]. battle_athena.conf reads it last, so it wins over
+	 * battle/population_engine.conf and battle/monster.conf. rAthena's rates are percents, 100 for 1x.
+	 */
+	fun battleFile( rates: Rates, world: World ): String = buildString {
+		appendLine( "// Written by the nostalRE app at every server start: the rates and world picked in its settings" )
+		fun line( key: String, value: Int ) = appendLine( "$key: $value" )
+		line( "base_exp_rate", rates.baseExp * 100 )
+		line( "mvp_exp_rate", rates.baseExp * 100 )
+		line( "job_exp_rate", rates.jobExp * 100 )
+		DROP_KEYS.forEach { line( it, rates.drop * 100 ) }
+		CARD_KEYS.forEach { line( it, rates.card * 100 ) }
+		line( "population_engine_enable", if( world.ai ) 1 else 0 )
+		line( "population_engine_max_count", world.maxShells )
+		line( "population_engine_density_pct", world.density )
+		line( "mob_count_rate", world.monsters )
+		// a respawn delay in percent: 2x as fast is half the delay
+		line( "mob_spawn_delay", 100 / world.respawn )
 	}
 
 	private fun ratePrefs( context: Context ) = context.getSharedPreferences( "rates", Context.MODE_PRIVATE )
@@ -99,11 +145,19 @@ object ServerConf {
 	fun saveRates( context: Context, rates: Rates ) =
 		ratePrefs( context ).edit().apply { rates.toMap().forEach { ( key, value ) -> putInt( key, value ) } }.apply()
 
-	/** The saved rates into the servers' import file; the app's updates unpack the servers' files afresh, so before every start. */
-	fun writeRates( context: Context ) {
+	private fun worldPrefs( context: Context ) = context.getSharedPreferences( "world", Context.MODE_PRIVATE )
+
+	fun world( context: Context ): World = World.from( worldPrefs( context ).all )
+
+	fun saveWorld( context: Context, world: World ) = worldPrefs( context ).edit().apply {
+		world.toMap().forEach { ( key, value ) -> if( value is Boolean ) putBoolean( key, value ) else putInt( key, value as Int ) }
+	}.apply()
+
+	/** The saved rates and world into the servers' import file; the app's updates unpack the servers' files afresh, so before every start. */
+	fun writeBattle( context: Context ) {
 		val file = File( Paths( context ).server, "conf/import/battle_conf.txt" )
 		file.parentFile?.mkdirs()
-		file.writeText( ratesFile( rates( context ) ) )
+		file.writeText( battleFile( rates( context ), world( context ) ) )
 	}
 
 	/** A custom NPC the server's npc/scripts_custom.conf loads, which the player may turn off: [file] under npc/custom. */

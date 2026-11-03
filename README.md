@@ -5,6 +5,7 @@
 [![Issues][issues-shield]][issues-url]
 [![License][license-shield]][license-url]
 [![Android][android-shield]][release-url]
+[![Ko-fi][kofi-shield]][kofi-url]
 
 <br />
 <div align="center">
@@ -324,6 +325,8 @@ tested and checked on a device before they are released.
 [license-shield]: https://img.shields.io/github/license/si-klyde/nostalre-launcher?style=for-the-badge
 [license-url]: https://github.com/si-klyde/nostalre-launcher/blob/main/LICENSE
 [android-shield]: https://img.shields.io/badge/Android-11%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white
+[kofi-shield]: https://img.shields.io/badge/Ko--fi-Support-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white
+[kofi-url]: https://ko-fi.com/siklyde
 [product-screenshot]: https://raw.githubusercontent.com/si-klyde/nostalre/main/docs/images/android-handheld.webp
 [rust-shield]: https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white
 [rust-url]: https://www.rust-lang.org/
