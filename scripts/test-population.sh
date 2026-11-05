@@ -44,7 +44,19 @@ saved="$(mktemp)"
 cp "$conf" "$saved"
 pids=""
 stop_servers() {
-	[ -z "$pids" ] || { kill $pids 2>/dev/null || true; wait $pids 2>/dev/null || true; }
+	local t=0 pid
+	[ -n "$pids" ] || return 0
+	kill $pids 2>/dev/null || true
+	# a server spinning in its shutdown must fail the run, not stall it
+	for pid in $pids; do
+		while kill -0 "$pid" 2>/dev/null && [ "$t" -lt "${POP_STOP_WAIT:-60}" ]; do sleep 1; t=$((t + 1)); done
+		if kill -0 "$pid" 2>/dev/null; then
+			echo "FAIL  server $pid did not stop in ${POP_STOP_WAIT:-60} s; last map log line: $(tail -1 "$logs/map.log" | cut -c1-80)"
+			fails=$((fails + 1))
+			kill -9 "$pid" 2>/dev/null || true
+		fi
+	done
+	wait $pids 2>/dev/null || true
 	pids=""
 }
 trap 'stop_servers; cp "$saved" "$conf"; rm -f "$saved"' EXIT
