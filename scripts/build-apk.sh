@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the Android app: rAthena's servers, the bridge and nostalRE for Android, a fresh database (the app creates
+# Builds the Android app: rAthena's servers, the bridge, the English text importer (english/) and nostalRE for Android, a fresh database (the app creates
 # the account), staged into out/build/apk and packed by Gradle. Game files are not bundled, the app reads them from
 # storage.
 # Usage: scripts/build-apk.sh [--skip-native] [--release]
@@ -27,6 +27,7 @@ client_library="${client_parts[1]}"
 if ! $skip_native; then
 	"$ROOT/scripts/build-server.sh" android
 	"$ROOT/scripts/build-bridge.sh" android
+	( cd "$ROOT/english" && ANDROID_NDK_HOME="$NDK" cargo ndk -t "$ANDROID_ABI" -P "$ANDROID_API" build --release )
 	( cd "$CLIENT" && ANDROID_NDK_HOME="$NDK" cargo ndk -t "$ANDROID_ABI" -P "$ANDROID_API" \
 		build --release -p "$client_package" --lib )
 fi
@@ -44,6 +45,9 @@ rm -rf "$stage" && mkdir -p "$libs" "$stage/assets"
 for bin in login-server char-server map-server grf-server; do
 	cp "$OUT/android/bin/$bin" "$libs/lib${bin//-/}.so"
 done
+english="$ROOT/english/target/aarch64-linux-android/release/nostalre-english"
+[ -f "$english" ] || { echo "English importer missing: $english (build without --skip-native first)" >&2; exit 1; }
+"$NDK_BIN/llvm-strip" -o "$libs/libnostalreenglish.so" "$english"
 "$NDK_BIN/llvm-strip" -o "$libs/$(basename "$client_library")" "$client_library"
 
 # the licenses and notices of what the APK carries: this repository (the app, the bridge, rAthena's GPL) and

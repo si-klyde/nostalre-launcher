@@ -1,0 +1,8 @@
+NV_BASIC#
+Basic Skill
+Max Lv: 9
+#
+SM_BASH#
+Bash
+Renewal _text_
+#

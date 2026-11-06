@@ -9,8 +9,9 @@
 //
 // Without a DATA.INI it only serves the folder's files.
 //
-// Usage: grf-server <game data dir> [port] [archive...]   (default 8001; the archives in the order to read them,
-//   else those DATA.INI lists)
+// Usage: grf-server <game data dir> [port] [--loose <dir>]... [archive...]   (default 8001; the archives in the order
+//   to read them, else those DATA.INI lists). Each --loose folder is another layer of loose files under the game
+//   folder's own (the Android app's English text): the game folder wins, then the --loose folders in order.
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -53,6 +54,7 @@ struct GrfEntry {
 };
 
 std::string data_dir;
+std::vector<std::string> loose_dirs; // data_dir, then each --loose folder: the first holding a file wins
 std::unordered_map<std::string, GrfEntry> entries; // key: lower case path with '/' separators
 std::vector<std::string> names;                    // original GRF names, for searches
 std::unordered_map<std::string, std::string> loose; // same keys as entries -> file in the data folder
@@ -211,15 +213,19 @@ bool read_entry( const GrfEntry& e, std::string& out ){
 	return inflate_to( packed, out, e.size );
 }
 
-/// Indexes every file of the data folder by its lower case relative path, like the GRF entries.
+/// Indexes every file of the loose folders by its lower case relative path, like the GRF entries; a path an earlier
+/// folder has is kept.
 void index_loose(){
-	std::error_code ec;
+	for( const std::string& dir : loose_dirs ){
+		std::error_code ec;
+		size_t before = loose.size();
 
-	for( auto it = std::filesystem::recursive_directory_iterator( data_dir, ec ); !ec && it != std::filesystem::recursive_directory_iterator(); it.increment( ec ) ){
-		if( it->is_regular_file( ec ) && it->path().extension() != ".grf" )
-			loose[normalize( latin1_bytes( std::filesystem::relative( it->path(), data_dir, ec ).string() ) )] = it->path().string();
+		for( auto it = std::filesystem::recursive_directory_iterator( dir, ec ); !ec && it != std::filesystem::recursive_directory_iterator(); it.increment( ec ) ){
+			if( it->is_regular_file( ec ) && it->path().extension() != ".grf" )
+				loose.emplace( normalize( latin1_bytes( std::filesystem::relative( it->path(), dir, ec ).string() ) ), it->path().string() );
+		}
+		fprintf( stderr, "[grf-server] %s: %zu loose files\n", dir.c_str(), loose.size() - before );
 	}
-	fprintf( stderr, "[grf-server] %s: %zu loose files\n", data_dir.c_str(), loose.size() );
 }
 
 /// Files of the data folder (BGM, translations, ...); only indexed files can be read.
@@ -395,14 +401,21 @@ void session( int fd ){
 
 int main( int argc, char** argv ){
 	if( argc < 2 ){
-		fprintf( stderr, "usage: grf-server <game data dir> [port] [archive...]\n" );
+		fprintf( stderr, "usage: grf-server <game data dir> [port] [--loose <dir>]... [archive...]\n" );
 		return EXIT_FAILURE;
 	}
 	data_dir = argv[1];
+	loose_dirs.push_back( data_dir );
 	int port = argc > 2 ? atoi( argv[2] ) : 8001;
 
 	// the archives as the caller lists them (the Android app: the game's own list), else DATA.INI's
-	std::vector<std::string> grfs( argv + std::min( argc, 3 ), argv + argc );
+	std::vector<std::string> grfs;
+	for( int i = 3; i < argc; i++ ){
+		if( strcmp( argv[i], "--loose" ) == 0 && i + 1 < argc )
+			loose_dirs.push_back( argv[++i] );
+		else
+			grfs.push_back( argv[i] );
+	}
 	if( grfs.empty() )
 		for( const std::string& name : data_ini( data_dir ) )
 			grfs.push_back( data_dir + "/" + name );

@@ -1,0 +1,22 @@
+[package]
+name = "nostalre-english"
+version = "0.1.0"
+edition = "2024"
+description = "Turns a ROenglishRE checkout into the English data files nostalRE and grf-server read"
+license = "GPL-3.0-or-later"
+publish = false
+
+[workspace]
+
+[dependencies]
+encoding_rs = "0.8.35"
+indexmap = "2.13.0"
+mlua = { version = "0.11.6", features = ["lua51", "vendored"] }
+regex = "1.11.1"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+serde_norway = "0.9.42"
+
+[dev-dependencies]
+nostalre-formats = { path = "../client/lib/formats" }
+tempfile = "3.20.0"

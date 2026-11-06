@@ -1,0 +1,1 @@
+-- not a kept extension under texture/
