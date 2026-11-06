@@ -1,0 +1,28 @@
+SKILL_INFO_LIST = {
+	[SKID.NV_BASIC] = {
+		"NV_BASIC";
+		SkillName = "Basic Skill",
+		MaxLv = 9,
+		SpAmount = { 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+		bSeperateLv = false,
+		AttackRange = { 1, 1, 1, 1, 1, 1, 1, 1, 1 }
+	},
+	[SKID.SM_BASH] = {
+		"SM_BASH";
+		SkillName = "Bash",
+		MaxLv = 2,
+		SpAmount = { 8, 8 },
+		bSeperateLv = true,
+		AttackRange = { 1, 1 },
+		_NeedSkillList = {
+			[JOBID.JT_SWORDMAN] = { { SKID.NV_BASIC, 1 } }
+		}
+	},
+	[SKID.MG_FIREBOLT] = {
+		"MG_FIREBOLT";
+		MaxLv = 2,
+		SpAmount = { 12, 14 },
+		bSeperateLv = true,
+		AttackRange = { 9, 9 }
+	}
+}

@@ -42,13 +42,14 @@ config["grf_paths"] = [os.path.join(data, name) for name in names]
 config["bgm_path"] = os.path.join(data, "BGM")
 # the pinned client's folder, the first archive's: its System and SystemEN tables (map titles, special pop-ups)
 config["install_dir"] = os.path.dirname(os.path.normpath(config["grf_paths"][0])) if config["grf_paths"] else None
-# loose files over the GRFs, as the Android app gives them: the English text (scripts/import-english.py).
+# loose files over the GRFs, as the Android app gives them (LooseFiles): game-data/data first, then the English
+# text (english/: nostalre-english import ... game-data/english/data) under it.
 # Their names are CP949 bytes spelled as Latin-1 (grf-server's convention); the client wants the Korean
 # itself, so it reads a mirror of symlinks under decoded names, rebuilt each run so removed files go too.
-loose = os.path.join(data, "data")
+layers = [d for d in (os.path.join(data, "data"), os.path.join(data, "english", "data")) if os.path.isdir(d)]
 mirror = os.path.join(out, "nostalre-data")
 shutil.rmtree(mirror, ignore_errors=True)
-if os.path.isdir(loose):
+for loose in layers:
     for root, _, files in os.walk(loose):
         for name in files:
             source = os.path.join(root, name)
@@ -58,9 +59,11 @@ if os.path.isdir(loose):
             except (UnicodeEncodeError, UnicodeDecodeError):
                 pass  # already plain or real Unicode
             link = os.path.join(mirror, rel)
+            if os.path.lexists(link):
+                continue  # an earlier layer has it
             os.makedirs(os.path.dirname(link), exist_ok=True)
             os.symlink(source, link)
-config["data_dir"] = mirror if os.path.isdir(loose) else None
+config["data_dir"] = mirror if layers else None
 config["login_servers"] = [{"name": "nostalRE", "host": "127.0.0.1", "port": 6900}]
 # a scripted run logs in and enters its character by itself (the hub's solo launch)
 char_id = os.environ.get("NOSTALRE_CHAR_ID")

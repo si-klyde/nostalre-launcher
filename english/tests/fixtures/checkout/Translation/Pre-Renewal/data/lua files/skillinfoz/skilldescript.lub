@@ -1,0 +1,10 @@
+SKILL_DESCRIPT = {
+	[SKID.NV_BASIC] = {
+		"Basic Skill",
+		"Max Lv: 9"
+	},
+	[SKID.SM_BASH] = {
+		"Bash",
+		"Old text"
+	}
+}
