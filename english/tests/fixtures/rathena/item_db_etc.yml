@@ -1,0 +1,13 @@
+Header:
+  Type: ITEM_DB
+  Version: 3
+
+Body:
+  - Id: 4001
+    AegisName: Poring_Card
+    Name: Poring Card
+    Type: Card
+  - Id: 909
+    AegisName: Jellopy
+    Name: Jellopy
+    Type: Etc

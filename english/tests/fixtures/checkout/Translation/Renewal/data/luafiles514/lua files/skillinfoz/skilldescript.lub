@@ -1,0 +1,6 @@
+SKILL_DESCRIPT = {
+	[SKID.SM_BASH] = {
+		"Bash",
+		"Renewal #text#"
+	}
+}

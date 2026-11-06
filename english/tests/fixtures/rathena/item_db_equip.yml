@@ -1,0 +1,34 @@
+Header:
+  Type: ITEM_DB
+  Version: 3
+
+Body:
+  - Id: 2101
+    AegisName: Guard
+    Name: Guard
+    Type: Armor
+    Slots: 1
+    Locations:
+      Left_Hand: true
+    View: 1
+  - Id: 2220
+    AegisName: Hat
+    Name: Hat
+    Type: Armor
+    Locations:
+      Head_Top: true
+    View: 16
+  - Id: 19500
+    AegisName: C_Hat
+    Name: "Costume Hat"
+    Type: Armor
+    Locations:
+      Costume_Head_Mid: true
+    View: 900
+  - Id: 2301
+    AegisName: Cotton_Shirt
+    Name: Cotton Shirt
+    Type: Armor
+    Locations:
+      Armor: true
+    View: 3

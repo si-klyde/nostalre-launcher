@@ -1,0 +1,29 @@
+Header:
+  Type: SKILL_DB
+  Version: 3
+
+Body:
+  - Id: 1
+    Name: NV_BASIC
+    Description: Basic Skill
+    MaxLevel: 9
+  - Id: 5
+    Name: SM_BASH
+    Description: Bash
+    MaxLevel: 2
+    Requires:
+      SpCost: 8
+  - Id: 19
+    Name: MG_FIREBOLT
+    Description: Fire Bolt
+    MaxLevel: 2
+    Requires:
+      SpCost:
+        - Level: 1
+          Amount: 12
+        - Level: 2
+          Amount: 15
+  - Id: 5022
+    Name: DK_SERVANTWEAPON_ATK
+    Description: Servant Weapon Attack
+    MaxLevel: 1

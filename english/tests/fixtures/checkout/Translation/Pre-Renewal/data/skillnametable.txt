@@ -1,0 +1,2 @@
+MG_FIREBOLT#Fire_Bolt#
+SM_BASH#Old_Bash#

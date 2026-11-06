@@ -1,0 +1,9 @@
+501#Red Potion#
+502#Orange Potion#
+909#Jellopy#
+2101#Guard#
+2220#Hat#
+2301#Cotton Shirt#
+4001#Poring Card#
+19500#Costume Hat#
+100001#Brand New Item#
