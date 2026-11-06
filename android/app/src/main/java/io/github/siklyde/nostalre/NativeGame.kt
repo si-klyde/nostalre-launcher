@@ -6,7 +6,6 @@ import android.system.Os
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.nio.charset.Charset
 
 /**
  * The game: nostalRE (client/, Rust/wgpu), built into the APK by scripts/build-apk.sh. It runs in a NativeActivity
@@ -47,21 +46,17 @@ object NativeGame {
 	}
 
 	/**
-	 * The game folder's loose data/ files (the English text) as the client wants them. Their names are CP949
-	 * bytes spelled as Latin-1, as grf-server reads them; the client looks for the Korean itself, so it gets a
-	 * mirror of symlinks under decoded names, rebuilt each launch so removed files go too.
+	 * The loose data/ files as the client wants them: the game folder's own, then the installed English text
+	 * ([LooseFiles]). The client gets a mirror of symlinks under decoded names, rebuilt each launch so removed files
+	 * go too.
 	 */
 	private fun looseFiles( activity: Activity, gameDir: File ): File? {
-		val loose = File( gameDir, "data" ).takeIf { it.isDirectory } ?: return null
+		val files = LooseFiles.layers( listOf( File( gameDir, "data" ), EnglishText.Dirs( activity ).data ) )
+		if( files.isEmpty() )
+			return null
 		val mirror = File( activity.filesDir, "nostalre-data" )
 		mirror.deleteRecursively()
-		val cp949 = Charset.forName( "MS949" )
-		loose.walkTopDown().filter { it.isFile }.forEach { source ->
-			val relative = source.relativeTo( loose ).path
-			// only Latin-1 spellings decode; plain ASCII stays itself, real Unicode names are left alone
-			val decoded = relative.takeIf { name -> name.all { it.code < 0x100 } }
-				?.let { String( it.toByteArray( Charsets.ISO_8859_1 ), cp949 ) }
-				?.takeIf { '�' !in it } ?: relative
+		for( ( decoded, source ) in files ) {
 			val link = File( mirror, decoded )
 			link.parentFile?.mkdirs()
 			Os.symlink( source.path, link.path )

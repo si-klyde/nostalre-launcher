@@ -116,7 +116,9 @@ class ServerService : Service() {
 			Proc( "char-server", "libcharserver.so", emptyList(), 6121, needed = true ),
 			Proc( "map-server", "libmapserver.so", emptyList(), 5121 ),
 			// the same archives as the game, in its order (GameDir.archives)
-			Proc( "grf-server", "libgrfserver.so", listOf( gameDir.path, "8001" ) + GameDir.archives( gameDir ).map { it.path }, 8001 ),
+			// the game folder's loose files, then the installed English text under them
+			Proc( "grf-server", "libgrfserver.so", LooseFiles.grfServerArgs( gameDir,
+				EnglishText.Dirs( this ).root.takeIf { EnglishText.installed( this ) }, GameDir.archives( gameDir ) ), 8001 ),
 		)
 		for( proc in procs ) {
 			if( stopping )
