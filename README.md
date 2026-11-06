@@ -115,17 +115,17 @@ and its servers on a PC.
    (allow installs when Android asks), then in the app: *Allow access*, *Choose folder* (the one from step 3),
    pick a username, make a character and press *Play*.
 
-That is all: the app finds the archives by itself and tells you if something is missing. For English text, see
-[below](#english-text).
+That is all: the app finds the archives by itself and tells you if something is missing. For English text, tap
+*Install English text* ([below](#english-text)).
 
 <details>
 <summary>What the game folder holds, and what each part gives</summary>
 
 | What | Needed? | Without it |
 | --- | --- | --- |
-| `data.grf` (kRO 2025-07-16, from WARPGATE) | Required | Nothing runs: nostalRE speaks that client's packet version; older or encrypted archives do not work |
+| `data.grf` (kRO 2025-07-16 exactly, from WARPGATE) | Required | Nothing runs: nostalRE speaks that client's packet version; older or encrypted archives do not work, newer ones are untested (kRO's 2026-04-29 archive cannot be read) |
 | `official_data.grf` (ROenglishRE) | Required | About 400 monsters, NPCs and items the servers use are invisible |
-| English `data/` files ([English text](#english-text)) | Strongly recommended | Korean text, and many newer items without a name or a look: the 2025 archive's own item table knows only about half the items |
+| English text ([installed by the app](#english-text), kept in its own storage) | Strongly recommended | Korean text, and many newer items without a name or a look: the 2025 archive's own item table knows only about half the items |
 | `System/`, `SystemEN/`, `data/` (from WARPGATE) | Recommended | No map title cards, special pop-ups, title names or damage skins |
 | `BGM/` (from WARPGATE) | Optional | No music |
 | `data/luafiles514/lua files/datainfo/iteminfo_true.lub` (an official kRO install's `System/itemInfo_true.lub`, renamed) | Optional | Item looks come from the English table instead of kRO's own |
@@ -140,16 +140,23 @@ That is all: the app finds the archives by itself and tells you if something is 
 
 ### English text
 
-kRO's data is in Korean. Until the app can do it itself, the English text is set up on a PC, once, by a script
-that writes the ROenglishRE translation into the game folder's `data/` (Python 3 with PyYAML, and `luac5.1`):
+kRO's data is in Korean. In the app, tap *Install English text* on the character screen (after a first folder pick
+the app offers it once). It downloads the [ROenglishRE](https://github.com/llchrisll/ROenglishRE) translation by
+llchrisll from GitHub, about 100 MB at the commit this app version was built for, converts it on the device and
+keeps it in the app's own storage: the game folder is not changed, and the translation is never bundled with the
+app. *Settings › English text* removes it, or updates it after an app update moves to a newer translation.
+
+Files in the game folder's own `data/` win over the installed text: an English `data/` copied there by hand (the
+old PC script's output) keeps being used until you delete it.
+
+On the desktop (`scripts/run-nostalre.sh`), the same importer runs on a PC with Rust:
 
 ```sh
 git clone https://github.com/llchrisll/ROenglishRE.git
-git clone --recurse-submodules https://github.com/si-klyde/nostalre-launcher.git
-python3 nostalre-launcher/scripts/import-english.py ROenglishRE /path/to/nostalRE   # writes /path/to/nostalRE/data/
+cargo run --release --manifest-path english/Cargo.toml -- import ROenglishRE server/db/re game-data/english/data
 ```
 
-Run it on the game folder before copying it to the device (or copy the new `data/` over afterwards).
+The importer replaces the folder it writes whole: give it a folder of its own, never the game folder's `data/`.
 
 ### Updating
 
@@ -165,7 +172,8 @@ a development key, so 0.1.2 and later cannot install over it; uninstall 0.1.1 fi
 | *No official_data.grf in this folder* | Download it ([Installation](#installation), step 2) and put it next to `data.grf`; you can play without it, minus some monsters and NPCs |
 | *Port … did not open* | A server failed to start: the message shows where its logs are. Restart the app, and [report it](https://github.com/si-klyde/nostalre-launcher/issues/new) with the log if it repeats |
 | Characters or monsters drawn as nothing | `official_data.grf` is missing, or a `DATA.INI` lists it before `data.grf` |
-| Korean text in game | Add the English `data/` folder ([English text](#english-text)) |
+| Korean text in game | Tap *Install English text* ([English text](#english-text)) |
+| *English text was not installed: …* | The message names what failed (network, free space, a file). Tap *Retry*: files already downloaded are kept |
 
 When reporting a problem, include the app version, the device and Android version, and the steps that lead to it.
 
@@ -261,7 +269,7 @@ job names. After changing `server/`, rerun the generator and commit its output w
 - [x] Controller in NPC dialogs, deal popups and shops; talk to the nearest NPC
 - [x] Release-signed APKs
 - [ ] Continuous integration for this repository
-- [ ] English text set up inside the app, without a PC
+- [x] English text set up inside the app, without a PC
 - [x] The app finds the archives itself and says what the folder lacks
 - [ ] Larger dialogs and shop windows on handhelds
 - [ ] No `official_data.grf` needed
@@ -308,7 +316,7 @@ Project link: [https://github.com/si-klyde/nostalre-launcher](https://github.com
 * [nostalro-client](https://github.com/nmeylan/nostalro-client) and [rust-ro](https://github.com/nmeylan/rust-ro) by Nicolas Meylan, which nostalRE grew from
 * [rAthena](https://github.com/rathena/rathena), the servers
 * [roBrowserLegacy](https://github.com/MrAntares/roBrowserLegacy), whose sprite reading and file protocol the hub and bridge follow
-* [ROenglishRE](https://github.com/llchrisll/ROenglishRE), the English translation and `official_data.grf`
+* [ROenglishRE](https://github.com/llchrisll/ROenglishRE) by llchrisll, the English translation (downloaded by the app when the player asks, never bundled) and `official_data.grf`
 * [Noto Sans](https://fonts.google.com/noto/specimen/Noto+Sans), the hub's font
 * [Best-README-Template](https://github.com/othneildrew/Best-README-Template), this README's layout
 

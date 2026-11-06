@@ -1,0 +1,17 @@
+Header:
+  Type: ITEM_DB
+  Version: 3
+
+Body:
+  - Id: 501
+    AegisName: Red_Potion
+    Name: Red Potion
+    Type: Healing
+  - Id: 502
+    AegisName: Orange_Potion
+    Name: Orange Potion
+    Type: Healing
+  - Id: 100001
+    AegisName: Brand_New_Item
+    Name: Brand New Item  # trailing comment
+    Type: Usable

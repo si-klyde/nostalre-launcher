@@ -12,7 +12,7 @@ import kotlin.concurrent.thread
 
 /**
  * The hub's settings, a screen like character creation's: the servers' rates, world and town helpers ([ServerConf]),
- * and GM commands ([Account]). GM commands save at once; the rest when the screen closes, [onClose] told whether it
+ * GM commands ([Account]) and the English text ([EnglishText]). GM commands save at once; the rest when the screen closes, [onClose] told whether it
  * changed (the servers restart with it).
  *
  * Controller: the D-pad moves between choices, A sets the one it is on, B or Start goes back ([Hub]). Touch: tap.
@@ -20,6 +20,8 @@ import kotlin.concurrent.thread
 class SettingsScreen(
 	private val context: Context,
 	isGm: Boolean,
+	/** Install / update (false) or remove (true) the English text: the settings are saved first, the servers restart */
+	private val onEnglish: ( remove: Boolean ) -> Unit,
 	private val onClose: ( changed: Boolean ) -> Unit,
 ) {
 	private val ratesBefore: ServerConf.Rates = ServerConf.rates( context )
@@ -64,6 +66,8 @@ class SettingsScreen(
 			addView( section( "ACCOUNT" ).spaced() )
 			addView( toggleRow( "GM commands", "@ commands in chat, like @warp and @item. Saved now; from your next game.",
 				{ gm } ) { setGm( it ) } )
+			addView( section( "ENGLISH TEXT" ).spaced() )
+			addView( englishRow() )
 		}
 		val right = LinearLayout( context ).apply {
 			orientation = LinearLayout.VERTICAL
@@ -102,12 +106,55 @@ class SettingsScreen(
 
 	/** B, Back or Start: saves what changed and goes back. */
 	fun close() {
+		save()
+		onClose( changed )
+	}
+
+	private fun save() {
 		if( changed ) {
 			ServerConf.saveRates( context, rates )
 			ServerConf.saveWorld( context, world )
 			ServerConf.saveHelpersOff( context, off )
 		}
-		onClose( changed )
+	}
+
+	/** Its state, then Update and Remove (installed) or Install; the translation's credit below */
+	private fun englishRow(): View {
+		val status = EnglishText.status( EnglishText.Dirs( context ) )
+		val about = "Item, skill and game text in English: downloads ROenglishRE (about 100 MB) and converts it. " +
+			"${EnglishText.CREDIT}, ${EnglishText.LINK}"
+		val label = if( status is EnglishText.Status.Installed ) "Installed (ROenglishRE ${status.sha.take( 7 )})" else "Not installed"
+		// Update only when this app pins another commit than the installed one: else it would fetch the same 100 MB
+		val actions = when {
+			status !is EnglishText.Status.Installed -> listOf( "Install" to false )
+			status.sha != English.SHA -> listOf( "Update" to false, "Remove" to true )
+			else -> listOf( "Remove" to true )
+		}
+		return LinearLayout( context ).apply {
+			orientation = LinearLayout.VERTICAL
+			addView( row( label ).apply {
+				for( ( text, remove ) in actions )
+					addView( Ui.text( context, 14f ).apply {
+						this.text = text
+						gravity = Gravity.CENTER
+						isFocusable = true
+						isClickable = true
+						background = Ui.choice( context, false )
+						pad( context, 12f, 0f )
+						onFocus( about )
+						setOnClickListener {
+							// getting it back costs a 100 MB download: Remove takes a second tap
+							if( remove && this.text != CONFIRM_REMOVE ) {
+								this.text = CONFIRM_REMOVE
+								return@setOnClickListener
+							}
+							save()
+							onEnglish( remove )
+						}
+					}, LinearLayout.LayoutParams( -2, Ui.dp( context, 34f ) ).apply { marginStart = Ui.dp( context, 4f ) } )
+			} )
+			addView( credit( context ) )
+		}
 	}
 
 	private fun update() {
@@ -229,7 +276,17 @@ class SettingsScreen(
 		ServerConf.Helper.RESET -> "Reset Girl, in Prontera: gives back your stat or skill points, 5,000 zeny each."
 	}
 
-	private companion object {
-		const val DEFAULT_HELP = "Pick how the game's server plays. Your characters keep everything when it restarts."
+	companion object {
+		/** "Translation: ROenglishRE by llchrisll", opening the repository when tapped */
+		fun credit( context: Context ) = Ui.text( context, 11f, Ui.DIM ).apply {
+			text = "${EnglishText.CREDIT} · ${EnglishText.LINK.removePrefix( "https://" )}"
+			isClickable = true
+			setOnClickListener {
+				runCatching { context.startActivity( android.content.Intent( android.content.Intent.ACTION_VIEW, android.net.Uri.parse( EnglishText.LINK ) ) ) }
+			}
+		}
+
+		private const val CONFIRM_REMOVE = "Tap again to remove"
+		private const val DEFAULT_HELP = "Pick how the game's server plays. Your characters keep everything when it restarts."
 	}
 }

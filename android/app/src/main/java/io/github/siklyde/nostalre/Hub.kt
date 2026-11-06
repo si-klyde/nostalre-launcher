@@ -31,7 +31,7 @@ import kotlin.math.abs
  * Controller: left/right or L1/R1 step through the line-up, A plays (or makes, on the last stop), X makes, Y deletes,
  * Start opens the settings ([SettingsScreen]). Touch: swipe or tap a neighbour to step, and the buttons along the bottom.
  * [onRestart] starts the servers again with new rates or helper NPCs (picked in the settings), then the hub selecting a
- * character.
+ * character. [onEnglish] installs (or with true removes) the English text ([EnglishText]), then restarts the servers.
  */
 class Hub(
 	private val context: Context,
@@ -39,6 +39,7 @@ class Hub(
 	private val onPlay: ( charId: Int ) -> Unit,
 	private val onChanged: ( selectId: Int ) -> Unit,
 	private val onRestart: ( selectId: Int ) -> Unit,
+	private val onEnglish: ( selectId: Int, remove: Boolean ) -> Unit,
 ) {
 
 	companion object {
@@ -133,6 +134,9 @@ class Hub(
 		val corner = LinearLayout( context ).apply {
 			gravity = Gravity.CENTER_VERTICAL
 			addView( Ui.text( context, 12f, Ui.DIM ).apply { text = Account.name( context ) }, LinearLayout.LayoutParams( -2, -2 ).apply { marginEnd = Ui.dp( context, 12f ) } )
+			// until it is installed; then it lives in the settings
+			if( !EnglishText.installed( context ) )
+				addView( Ui.hint( context, listOf( "EN" ), "Install English text", primary = true ) { onEnglish( selectedId(), false ) } )
 			addView( Ui.hint( context, listOf( "≡" ), "Settings" ) { settings() } )
 		}
 		select = Ui.screen( context, Ui.breadcrumb( context, null, "CHARACTERS" ), corner, body, help, listOf(
@@ -343,7 +347,7 @@ class Hub(
 	private fun openSettings( isGm: Boolean ) {
 		if( creator != null || settingsScreen != null )
 			return
-		val screen = SettingsScreen( context, isGm ) { changed -> closeSettings( changed ) }
+		val screen = SettingsScreen( context, isGm, { remove -> onEnglish( selectedId(), remove ) } ) { changed -> closeSettings( changed ) }
 		settingsScreen = screen
 		select.visibility = View.GONE
 		root.addView( screen.view() )
@@ -361,8 +365,10 @@ class Hub(
 		root.defaultFocusHighlightEnabled = false
 		root.requestFocus()
 		if( changed )
-			onRestart( characters.getOrNull( selected )?.id ?: 0 )
+			onRestart( selectedId() )
 	}
+
+	private fun selectedId() = characters.getOrNull( selected )?.id ?: 0
 
 	/** How [character] looks: the game's last snapshot (with headgear, equipment and mount), else drawn from its sprites. */
 	private fun look( character: Character, done: ( Bitmap? ) -> Unit ) {

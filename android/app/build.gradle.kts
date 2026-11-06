@@ -20,8 +20,8 @@ android {
 		// MANAGE_EXTERNAL_STORAGE: the game files are read in place from shared storage
 		minSdk = 30
 		targetSdk = 34
-		versionCode = 7
-		versionName = "0.2.1"
+		versionCode = 9
+		versionName = "0.3.1"
 		ndk { abiFilters += "arm64-v8a" }
 	}
 
@@ -63,4 +63,6 @@ android {
 
 dependencies {
 	testImplementation( "junit:junit:4.13.2" )
+	// Android has org.json built in; JVM unit tests need the real one (EnglishDownload reads GitHub's file list)
+	testImplementation( "org.json:json:20250517" )
 }

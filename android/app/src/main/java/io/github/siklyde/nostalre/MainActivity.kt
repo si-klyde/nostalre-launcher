@@ -27,6 +27,7 @@ class MainActivity : Activity() {
 		const val ACTION_CHOOSE_DIR = "io.github.siklyde.nostalre.CHOOSE_DIR"
 		private const val REQUEST_DIR = 1
 		private const val START_TIMEOUT_MS = 180_000L
+		private const val MB = 1024L * 1024
 	}
 
 	private var hub: Hub? = null
@@ -35,6 +36,8 @@ class MainActivity : Activity() {
 	private var dirError: String? = null
 	/** What the chosen folder lacks but can be played without: shown once, before the game starts */
 	private var dirWarning: String? = null
+	/** A folder was just picked: offer the English text (once ever, [EnglishText.offerOnce]) before the hub */
+	private var offerEnglish = false
 
 	override fun onCreate( savedInstanceState: Bundle? ) {
 		super.onCreate( savedInstanceState )
@@ -100,9 +103,15 @@ class MainActivity : Activity() {
 				Installer.run( this )
 			}
 			ServerService.start( this, gameDir )
+			val offer = offerEnglish && EnglishText.offerOnce( this )
+			offerEnglish = false
 			runOnUiThread {
 				busy = false
-				if( Account.name( this ) == null ) askName() else showHub()
+				when {
+					offer -> offerEnglish()
+					Account.name( this ) == null -> askName()
+					else -> showHub()
+				}
 			}
 		}
 	}
@@ -142,7 +151,9 @@ class MainActivity : Activity() {
 	}
 
 	private fun showHub( selectId: Int = 0 ) {
-		val hub = Hub( this, selectId, { play( it ) }, { showHub( it ) }, { restartServers( it ) } )
+		val hub = Hub( this, selectId, { play( it ) }, { showHub( it ) }, { restartServers( it ) } ) { id, remove ->
+			if( remove ) removeEnglish( id ) else installEnglish( id )
+		}
 		this.hub = hub
 		setContentView( hub.view() )
 	}
@@ -198,8 +209,60 @@ class MainActivity : Activity() {
 			chooseDir = false
 			dirError = null
 			dirWarning = GameDir.warning( dir )
+			offerEnglish = true
 		} else {
 			dirError = problem
+		}
+	}
+
+	/** After a folder pick, English not installed: install it now, or later from the hub */
+	private fun offerEnglish() {
+		// busy: back from the credit link's browser, onResume must not run setup again (the offer is already used)
+		busy = true
+		val next = {
+			busy = false
+			if( Account.name( this ) == null ) askName() else showHub()
+		}
+		screen( "Install English text? Items, skills and game text in English. It downloads ROenglishRE from GitHub " +
+			"(about 100 MB) and converts it on this device.", "Install", "Not now" to next ) { installEnglish( 0 ) }
+			.addView( SettingsScreen.credit( this ) )
+	}
+
+	/** Downloads and converts the English text, then restarts the servers so grf-server reads it */
+	private fun installEnglish( selectId: Int ) {
+		busy = true
+		val text = screen( "Installing English text…" ).getChildAt( 0 ) as android.widget.TextView
+		thread( name = "english" ) {
+			EnglishText.install( this ).run { status ->
+				runOnUiThread {
+					when( status ) {
+						is EnglishText.Status.Downloading -> status.progress.let { p ->
+							text.text = if( p.totalFiles == 0 ) "Getting the file list…"
+							else "Downloading English text: ${p.files}/${p.totalFiles} files · ${p.bytes / MB}/${p.totalBytes / MB} MB"
+						}
+						EnglishText.Status.Converting -> text.text = "Converting English text…"
+						is EnglishText.Status.Installed -> restartServers( selectId )
+						is EnglishText.Status.Failed -> {
+							busy = false
+							// back through a restart: it asks the username when there is none yet and applies settings saved
+							// before the install
+							screen( "English text was not installed: ${status.message}", "Retry", "Back" to { restartServers( selectId ) } ) {
+								installEnglish( selectId )
+							}
+						}
+						EnglishText.Status.NotInstalled -> Unit
+					}
+				}
+			}
+		}
+	}
+
+	private fun removeEnglish( selectId: Int ) {
+		busy = true
+		screen( "Removing English text…" )
+		thread( name = "english" ) {
+			EnglishText.remove( EnglishText.Dirs( this ) )
+			runOnUiThread { restartServers( selectId ) }
 		}
 	}
 
@@ -215,7 +278,9 @@ class MainActivity : Activity() {
 				ServerService.start( this, gameDir )
 			runOnUiThread {
 				busy = false
-				if( stopped )
+				if( stopped && Account.name( this ) == null )
+					askName() // English installed from the first folder pick, before any username
+				else if( stopped )
 					showHub( selectId )
 				else
 					screen( "The server did not stop. Logs: ${Paths( this ).logs}", "Retry" ) { restartServers( selectId ) }
@@ -247,7 +312,8 @@ class MainActivity : Activity() {
 		return super.dispatchKeyEvent( event )
 	}
 
-	private fun screen( message: String, button: String? = null, action: ( () -> Unit )? = null ): LinearLayout {
+	/** A message, a button doing [action], and [other]'s button under it */
+	private fun screen( message: String, button: String? = null, other: Pair<String, () -> Unit>? = null, action: ( () -> Unit )? = null ): LinearLayout {
 		hub = null
 		val layout = LinearLayout( this ).apply {
 			orientation = LinearLayout.VERTICAL
@@ -270,6 +336,16 @@ class MainActivity : Activity() {
 				setOnClickListener { action() }
 				requestFocus()
 			} )
+		if( other != null )
+			layout.addView( Ui.text( this, 18f ).apply {
+				text = other.first
+				gravity = Gravity.CENTER
+				isFocusable = true
+				isClickable = true
+				background = Ui.focusable( this@MainActivity, 0 )
+				setPadding( Ui.dp( this@MainActivity, 32f ), Ui.dp( this@MainActivity, 12f ), Ui.dp( this@MainActivity, 32f ), Ui.dp( this@MainActivity, 12f ) )
+				setOnClickListener { other.second() }
+			}, LinearLayout.LayoutParams( -2, -2 ).apply { topMargin = Ui.dp( this@MainActivity, 8f ) } )
 		setContentView( layout )
 		return layout
 	}

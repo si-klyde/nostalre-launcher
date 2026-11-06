@@ -26,4 +26,9 @@ are licensed with this repository.
 The hub's font is Noto Sans by the Noto Project Authors, SIL Open Font License 1.1
 (android/app/src/main/assets/licenses/NotoSans-OFL.txt).
 
+english/ (nostalre-english) converts the ROenglishRE translation by llchrisll, https://github.com/llchrisll/ROenglishRE,
+into the game's data files. The translation has no license and holds Gravity's game data: it is not part of this
+repository or the APK. The app downloads it from GitHub, at a pinned commit, only when the player asks, and keeps
+the converted files in the app's own storage on the player's device.
+
 No game files are included. The app and scripts read the player's own game folder.

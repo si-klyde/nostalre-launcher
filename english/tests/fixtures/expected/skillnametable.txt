@@ -1,0 +1,4 @@
+DK_SERVANTWEAPON_ATK#Servant_Weapon_Attack#
+MG_FIREBOLT#Fire_Bolt#
+NV_BASIC#Basic_Skill#
+SM_BASH#Bash#
