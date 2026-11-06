@@ -6,7 +6,7 @@ Android app's game folder. They are not part of this repository and are never co
 What goes in, where it comes from and what is lost without each piece: see
 [Prerequisites](../README.md#prerequisites) and [Installation](../README.md#installation) in the main README. In
 short, the kRO 2025-07-16 client folder as it is ([WARP0716](https://github.com/CrazyBebop/WARP0716)'s WARPGATE
-downloader fetches it), plus ROenglishRE's `official_data.grf` and the English text:
+downloader fetches it), plus ROenglishRE's `official_data.grf` and the English text in its own folder:
 
 ```
 game-data/
@@ -16,7 +16,12 @@ game-data/
 ├── System/
 ├── SystemEN/
 ├── BGM/
-└── data/               kRO's loose files, then the English text over them
+├── data/               kRO's loose files (they win over the English text)
+└── english/data/       the English text, written by the importer (see below)
 ```
 
-`scripts/import-english.py <ROenglishRE checkout>` writes the English text into `game-data/data/` by default.
+The English text, from a ROenglishRE checkout (`english/` is the importer the Android app runs too):
+
+```sh
+cargo run --release --manifest-path english/Cargo.toml -- import <ROenglishRE checkout> server/db/re game-data/english/data
+```
