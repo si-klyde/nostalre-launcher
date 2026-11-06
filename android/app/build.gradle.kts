@@ -63,4 +63,6 @@ android {
 
 dependencies {
 	testImplementation( "junit:junit:4.13.2" )
+	// Android has org.json built in; JVM unit tests need the real one (EnglishDownload reads GitHub's file list)
+	testImplementation( "org.json:json:20250517" )
 }
