@@ -5,6 +5,7 @@
 [![Issues][issues-shield]][issues-url]
 [![License][license-shield]][license-url]
 [![Android][android-shield]][release-url]
+[![Discord][discord-shield]][discord-url]
 [![Ko-fi][kofi-shield]][kofi-url]
 
 <br />
@@ -24,6 +25,8 @@
     <a href="#installation">Setup guide</a>
     &middot;
     <a href="https://github.com/si-klyde/nostalre-launcher/issues/new">Report a bug</a>
+    &middot;
+    <a href="https://discord.gg/GarBcyCgD">Discord</a>
     &middot;
     <a href="https://github.com/si-klyde/nostalre">nostalRE client</a>
   </p>
@@ -343,6 +346,8 @@ tested and checked on a device before they are released.
 [license-shield]: https://img.shields.io/github/license/si-klyde/nostalre-launcher?style=for-the-badge
 [license-url]: https://github.com/si-klyde/nostalre-launcher/blob/main/LICENSE
 [android-shield]: https://img.shields.io/badge/Android-11%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white
+[discord-shield]: https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord&logoColor=white
+[discord-url]: https://discord.gg/GarBcyCgD
 [kofi-shield]: https://img.shields.io/badge/Ko--fi-Support-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white
 [kofi-url]: https://ko-fi.com/siklyde
 [product-screenshot]: https://raw.githubusercontent.com/si-klyde/nostalre/main/docs/images/android-handheld.webp
