@@ -3,15 +3,20 @@
 # database (out/pop/db) and logs (out/pop/logs), driven by the network crate's session probe on the test account:
 #   off  engine switched off (the default): nothing loads, @populate refused, NPC count = before + arena.txt
 #   on   population_engine_enable: 1: the 9 yml load, @populate 20 prontera makes 20 shells, nothing of theirs
-#        reaches SQLite, no SQL errors, whispering "party" to a shell changes no party, the player's own save
+#        reaches SQLite, no SQL errors, a whisper that only contains "pt" changes no party, the player's own save
 #        survives a restart
 #   s2   phone tuning: shells only where the player is, released after the grace window (20 s here), density
 #        scales the crowd, buying from a shell vendor logs no shell row, wander skips maps nobody is on
 #   s3   the app's world settings (ServerConf.battleFile keys) reach the server: shell cap in the boot line,
 #        mob_count_rate in the monsters the boot loads
+#   levels shells suit their map: on a low, a mid and a high map and a town, each shell's level falls in the range
+#        its map and class allow, stats are ones that level could afford, gear is worn; off keeps the 99s
 # Needs: map/char/login servers built from the engine branch (POP_BIN, default out/pop/bin:
 #   RATHENA_DIR=<rathena-nostalre> with build-server.sh, or any host build) and the client checkout (the probe).
-# Usage: scripts/test-population.sh [off|on|s2|s3|all]   (RATHENA_DIR=<server checkout>, POP_BIN=<bin dir>)
+#   party shells as party companions: a whisper or an invite joins, the party list shows it, it fights for the player
+#        and follows across maps, it leaves on "bye", on logout and when the engine stops, and only the player's own
+#        rows reach SQLite
+# Usage: scripts/test-population.sh [off|on|s2|s3|party|levels|all]   (RATHENA_DIR=<server checkout>, POP_BIN=<bin dir>)
 set -euo pipefail
 source "$(dirname "$0")/common.sh"
 
@@ -42,7 +47,19 @@ saved="$(mktemp)"
 cp "$conf" "$saved"
 pids=""
 stop_servers() {
-	[ -z "$pids" ] || { kill $pids 2>/dev/null || true; wait $pids 2>/dev/null || true; }
+	local t=0 pid
+	[ -n "$pids" ] || return 0
+	kill $pids 2>/dev/null || true
+	# a server spinning in its shutdown must fail the run, not stall it
+	for pid in $pids; do
+		while kill -0 "$pid" 2>/dev/null && [ "$t" -lt "${POP_STOP_WAIT:-60}" ]; do sleep 1; t=$((t + 1)); done
+		if kill -0 "$pid" 2>/dev/null; then
+			echo "FAIL  server $pid did not stop in ${POP_STOP_WAIT:-60} s; last map log line: $(tail -1 "$logs/map.log" | cut -c1-80)"
+			fails=$((fails + 1))
+			kill -9 "$pid" 2>/dev/null || true
+		fi
+	done
+	wait $pids 2>/dev/null || true
 	pids=""
 }
 trap 'stop_servers; cp "$saved" "$conf"; rm -f "$saved"' EXIT
@@ -128,10 +145,10 @@ if [ "$what" = on ] || [ "$what" = all ]; then
 	# a shell's name from @who: any listed name but ours
 	shell=$(grep -aoP 'message: "Name: \K[^|()"]+?(?= *(\(|\||"))' "$tmp/on.txt" | grep -vxF "$char" | head -1 || true)
 	if [ -n "$shell" ]; then
-		probe "$tmp/party.txt" --social "whisper:$shell:party" --social wait:5 --seconds 2
-		# the shell took the whisper (ack 0) and answered with the refusal (population_engine.cpp, nostalRE)
-		check "AC8 '$shell' took the whisper and refused" \
-			"$(yes_no 'grep -aq "social: whisper:" "$tmp/party.txt" && grep -aq "hunt alone" "$tmp/party.txt"')"
+		# "empty" holds the keyword "pt" but is not a request (the "party" stage below covers real ones)
+		probe "$tmp/party.txt" --social "whisper:$shell:empty" --social wait:5 --seconds 2
+		check "AC8 '$shell' took the whisper and did not join" \
+			"$(yes_no 'grep -aq "social: whisper:" "$tmp/party.txt" && ! grep -aq "lead the way" "$tmp/party.txt"')"
 		check "AC8 no party row (parties $parties -> $(sql "SELECT COUNT(*) FROM party"))" \
 			"$(yes_no '[ "$(sql "SELECT COUNT(*) FROM party")" = "$parties" ] && [ "$(sql "SELECT party_id FROM \`char\` WHERE char_id = $id")" = 0 ]')"
 	else
@@ -234,6 +251,170 @@ if [ "$what" = s3 ] || [ "$what" = all ]; then
 	start_servers 0 "mob_count_rate: 200"; m2=$(cached)
 	check "AC5 mob_count_rate 200: ${m2:-?} monsters vs ${m1:-?} at 100 (want 1.9-2x)" \
 		"$(yes_no '[ -n "$m1" ] && [ -n "$m2" ] && [ $((m2 * 100)) -ge $((m1 * 190)) ] && [ $((m2 * 100)) -le $((m1 * 200)) ]')"
+fi
+
+# --- levels: shell levels suit the map -------------------------------------------
+# levels_check <probe output> <map> <monster level, 0 = town>: every shell of the map in `@populate levels`
+levels_check() {
+	python3 -c "$levels_py" "$@" "$RATHENA/db/re/statpoint.yml" >&2
+}
+levels_py=$(cat <<'PY'
+import re, sys
+path, name, map_level, statpoints = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
+FIRST = {"Swordman", "Swordsman", "Mage", "Magician", "Archer", "Acolyte", "Merchant", "Thief", "Taekwon"}
+NO_NEXT_CLASS = {"Gunslinger", "Ninja"}
+FIST = {"Taekwon", "Star Gladiator", "Soul Linker"} # kick and punch: their gear sets hold no weapon
+def window(job): # population_roll_map_levels' range for this map and class
+	floor, cap = (1, 15) if job == "Novice" else (10, 70) if job in FIRST else (10, 99) if job in NO_NEXT_CLASS \
+		else (60, 99) if job == "Assassin Cross" else (45, 99)
+	spread = max(3, map_level // 10) if map_level else 12
+	lo, hi = (map_level - spread, map_level + spread) if map_level else (30, 85)
+	hi = min(max(hi, floor + spread), cap)
+	return max(min(lo, hi - spread), floor), hi
+table = dict(re.findall(r'Level: (\d+)\s+Points: (\d+)', open(statpoints).read()))
+def budget(level):
+	return int(table[str(level)])
+def cost(stat):
+	return sum((i - 1) // 10 + 2 for i in range(1, stat))
+text = open(path, errors="replace").read()
+# this map's part of the probe's output: from its @warp up to the next one
+part = text.split("say:@warp " + name)[-1].split("say:@warp ")[0]
+rows = re.findall(r'shell job ([^"]+?) lv (\d+)/(\d+) stats (\d+)/(\d+)/(\d+)/(\d+)/(\d+)/(\d+) weapon (\d+) armor (\d+) shoes (\d+)', part)
+bad, jobs, levels, ratios, no_weapon, no_armor = [], {}, [], [], 0, 0
+for job, base, jl, *rest in rows:
+	base, jl = int(base), int(jl)
+	stats = [int(x) for x in rest[:6]]
+	weapon, armor = int(rest[6]), int(rest[7])
+	lo, hi = window(job)
+	levels.append(base)
+	jobs[job] = jobs.get(job, 0) + 1
+	ratios.append(sum(cost(s) for s in stats) / budget(base))
+	if not lo <= base <= hi:
+		bad.append(f"{job} {base} outside {lo}-{hi}")
+	if not 1 <= jl <= 70:
+		bad.append(f"{job} job level {jl}")
+	if max(stats) > 99:
+		bad.append(f"{job} stats {stats}")
+	if ratios[-1] > 1:
+		bad.append(f"{job} {base} stats {stats} cost more than the level has")
+	if armor == 0:
+		no_armor += 1
+	if weapon == 0 and job not in FIST:
+		no_weapon += 1
+		bad.append(f"{job} {base} has no weapon")
+if not rows:
+	bad.append("no shells listed")
+print(f"      {name}: {len(rows)} shells, levels {min(levels, default=0)}-{max(levels, default=0)}, "
+	f"stat points vs budget {min(ratios, default=0):.2f}-{max(ratios, default=0):.2f}, "
+	f"no weapon {no_weapon}, no armor {no_armor}, jobs {sorted(jobs)}")
+for line in sorted(set(bad))[:15]:
+	print("      ! " + line)
+sys.exit(1 if bad else 0)
+PY
+)
+if [ "$what" = levels ] || [ "$what" = all ]; then
+	echo "== map levels"
+	[ -n "$(sql "SELECT char_id FROM \`char\` WHERE name = '$char'")" ] || {
+		start_servers 0; probe "$tmp/create.txt" --create "$char" --seconds 1; }
+	grace="population_engine_demand_grace_ms: 20000"
+	full_density="population_engine_density_pct: 100"
+	# low (Knights only, then first classes too), mid, high, a town, and a field with no monsters at all
+	visit=()
+	for m in prt_fild08 gef_fild00 gef_fild10 tur_dun04 prontera pay_fild05; do
+		visit+=(--social "say:@warp $m" --social wait:14 --social "say:@populate levels" --social wait:1)
+	done
+
+	start_servers 1 "$grace" "$full_density"
+	probe "$tmp/levels.txt" "${visit[@]}" --seconds 1
+	map_level() { grep -aoP "map '$1' has monster level \K\d+" "$logs/map.log" | head -1 || true; }
+	low=$(map_level prt_fild08); low2=$(map_level gef_fild00); mid=$(map_level gef_fild10); high=$(map_level tur_dun04)
+	check "AC1 monster levels from moblist: prt_fild08 ${low:-?} < 10, gef_fild10 ${mid:-?} in 30-60, tur_dun04 ${high:-?} >= 85" \
+		"$(yes_no '[ "${low:-99}" -lt 10 ] && [ "${mid:-0}" -ge 30 ] && [ "${mid:-0}" -le 60 ] && [ "${high:-0}" -ge 85 ]')"
+	check "AC1 prt_fild08 shells fit" "$(yes_no 'levels_check "$tmp/levels.txt" prt_fild08 "${low:-0}"')"
+	check "AC1 gef_fild00 shells fit" "$(yes_no 'levels_check "$tmp/levels.txt" gef_fild00 "${low2:-0}"')"
+	check "AC1 gef_fild10 shells fit" "$(yes_no 'levels_check "$tmp/levels.txt" gef_fild10 "${mid:-0}"')"
+	check "AC1 tur_dun04 shells fit" "$(yes_no 'levels_check "$tmp/levels.txt" tur_dun04 "${high:-0}"')"
+	check "AC2 prontera (town) shells fit" "$(yes_no 'levels_check "$tmp/levels.txt" prontera 0')"
+	check "AC2 pay_fild05 (no monsters) shells fit" "$(yes_no 'levels_check "$tmp/levels.txt" pay_fild05 0')"
+
+	start_servers 1 "$grace" "$full_density" "population_engine_map_levels: 0"
+	probe "$tmp/levels-off.txt" --social "say:@warp gef_fild10" --social wait:14 --social "say:@populate levels" --seconds 1
+	top=$(grep -aoP 'shell job .* lv \K99(?=/70 )' "$tmp/levels-off.txt" | wc -l || true)
+	check "AC4 switch off: the old 99/70 shells on gef_fild10 ($top), no map level computed" \
+		"$(yes_no '[ "$top" -gt 0 ] && ! grep -aq "has monster level" "$logs/map.log"')"
+fi
+
+# --- party: shells as companions ------------------------------------------------
+if [ "$what" = party ] || [ "$what" = all ]; then
+	echo "== party companions"
+	[ -n "$(sql "SELECT char_id FROM \`char\` WHERE name = '$char'")" ] || {
+		start_servers 0; probe "$tmp/create.txt" --create "$char" --seconds 1; }
+	id=$(sql "SELECT char_id FROM \`char\` WHERE name = '$char'")
+	sql "DELETE FROM party WHERE leader_char = $id"
+	sql "UPDATE \`char\` SET party_id = 0, last_map = 'prt_fild08', last_x = 170, last_y = 375, base_exp = 0, job_exp = 0 WHERE char_id = $id"
+	level=$(sql "SELECT base_level FROM \`char\` WHERE char_id = $id")
+	start_servers 1
+
+	# two field shells from @who; they outlive the gap between sessions (the demand grace, 3 min)
+	probe "$tmp/p-who.txt" --social wait:10 --social "say:@who" --seconds 1
+	names=$(grep -aoP 'message: "Name: \K[^|()"]+?(?= *(\(|\||"))' "$tmp/p-who.txt" | grep -vxF "$char" || true)
+	shell=$(echo "$names" | sed -n 1p)
+	shell2=$(echo "$names" | sed -n 2p)
+	check "AC1 two shells to party with: '${shell:-?}', '${shell2:-?}'" "$(yes_no '[ -n "$shell" ] && [ -n "$shell2" ]')"
+
+	if [ -n "$shell" ] && [ -n "$shell2" ]; then
+		# whisper with no party: it makes one and joins. Then shared EXP and items, Porings next to a player who never
+		# attacks, a map change, "bye", an invite by name, and the engine stopping under a companion.
+		probe "$tmp/p-main.txt" --social "whisper:$shell:party" --social wait:3 \
+			--social "party-option:1,1,1" --social wait:1 --social "say:@monster poring 12" --social wait:45 \
+			--social "say:@warp prt_fild07" --social wait:4 --social "say:@whomap prt_fild07" \
+			--social "whisper:$shell:bye" --social wait:2 \
+			--social "say:@warp prt_fild08" --social wait:4 \
+			--social "invite:$shell2" --social wait:3 \
+			--social "say:@populate stop" --social wait:3 --seconds 1
+
+		check "AC2 whisper answered: joined" "$(yes_no 'grep -aq "lead the way" "$tmp/p-main.txt"')"
+		check "AC2 party list shows '$shell' next to the player" \
+			"$(yes_no 'grep -aF "PartyMemberList" "$tmp/p-main.txt" | grep -aF "$shell" | grep -aqF "$char"')"
+		check "AC3 it moved with the player: party list has it on prt_fild07" \
+			"$(yes_no 'grep -aF "PartyMemberList" "$tmp/p-main.txt" | grep -aF "$shell" | grep -aq "prt_fild07"')"
+		check "AC4 'bye' takes it out of the list" "$(yes_no 'grep -aq "PartyMemberRemoved" "$tmp/p-main.txt"')"
+		check "AC5 invite by name: accepted" "$(yes_no 'grep -aF "PartyInviteResult" "$tmp/p-main.txt" | grep -aF "$shell2" | grep -aq "answer: 2"')"
+		removed=$(grep -ac "PartyMemberRemoved" "$tmp/p-main.txt" || true)
+		check "AC6 the engine stopping takes the last one out too ($removed removals, want 2)" "$(yes_no '[ "$removed" -ge 2 ]')"
+		check "AC6 map server still up after the engine stopped" "$(yes_no 'kill -0 $(echo $pids | cut -d" " -f3) 2>/dev/null')"
+
+		# the player only stood there: what they gained, the companion's kills gave them
+		probe "$tmp/p-after.txt" --seconds 2
+		now_exp=$(sql "SELECT base_exp FROM \`char\` WHERE char_id = $id")
+		now_level=$(sql "SELECT base_level FROM \`char\` WHERE char_id = $id")
+		check "AC7 a player who never attacked gained from its kills: exp $now_exp, level $level -> $now_level" \
+			"$(yes_no '[ "${now_exp:-0}" -gt 0 ] || [ "${now_level:-0}" -gt "$level" ]')"
+	fi
+
+	party_errors=$(grep -aE '\[Error\].*[Pp]arty|party_[a-z_]+:' "$logs/map.log" "$logs/char.log" || true)
+	check "AC8 no party errors in the server logs" "$(yes_no '[ -z "$party_errors" ]')"
+	[ -z "$party_errors" ] || echo "$party_errors" | head -5
+	check "AC8 no SQL errors in the logs" "$(yes_no '! grep -aqE "\[SQL\]: (DB error|Failed)" "$logs/map.log" "$logs/char.log"')"
+
+	# the real test: what the save holds, and what a restart gives back
+	start_servers 1
+	pid=$(sql "SELECT party_id FROM \`char\` WHERE char_id = $id")
+	check "AC9 the player's party survives: party_id ${pid:-?}, leader is the player" \
+		"$(yes_no '[ "${pid:-0}" -gt 0 ] && [ "$(sql "SELECT leader_char FROM party WHERE party_id = $pid")" = "$id" ]')"
+	members=$(sql "SELECT COUNT(*) FROM \`char\` WHERE party_id = ${pid:-0}")
+	check "AC9 $members party member row (the player alone)" "$(yes_no '[ "$members" = 1 ]')"
+	fake=0
+	for t in "\`char\`:char_id" "party:leader_char" "inventory:char_id" "cart_inventory:char_id" "picklog:char_id" "zenylog:char_id"; do
+		n=$(sql "SELECT COUNT(*) FROM ${t%%:*} WHERE ${t#*:} >= 95000000")
+		[ "$n" = 0 ] || { echo "   ${t%%:*}: $n rows of shells"; fake=1; }
+	done
+	check "AC9 no shell rows in char, party, inventory, cart, picklog, zenylog" $fake
+	check "AC9 no fake party id saved" "$(yes_no '[ "$(sql "SELECT COUNT(*) FROM \`char\` WHERE party_id >= 1879048192")" = 0 ]')"
+	# @who names each character's party; the party list itself comes at login, before the probe prints events
+	probe "$tmp/p-restart.txt" --social wait:6 --social "say:@who" --social wait:1 --seconds 1
+	in_party=$(grep -aoP "message: \"Name: \K[^|(]+(?=.*Party: '$char Party')" "$tmp/p-restart.txt" | sort -u | tr '\n' ',' || true)
+	check "AC9 after a restart the party holds the player only: ${in_party:-nobody}" "$(yes_no '[ "$in_party" = "$char," ]')"
 fi
 
 echo "logs: $logs  probe output: kept only on failure"
