@@ -63,6 +63,8 @@ class SettingsScreen(
 				ServerConf.World.MONSTER_STEPS, ServerConf.World().monsters, { "$it%" }, { world.monsters } ) { world = world.copy( monsters = it ) } )
 			addView( stepRow( "Respawn speed", "How fast killed monsters come back, times the official speed. Not MVPs or plants.",
 				ServerConf.World.RESPAWN_STEPS, ServerConf.World().respawn, { "${it}x" }, { world.respawn } ) { world = world.copy( respawn = it ) } )
+			addView( toggleRow( "Starter wings", "New characters start with an Infinite Fly Wing and a Butterfly Wing. Butterfly Wings are then never used up, and can't be sold or dropped.",
+				{ world.starterWings } ) { world = world.copy( starterWings = it ) } )
 			addView( section( "ACCOUNT" ).spaced() )
 			addView( toggleRow( "GM commands", "@ commands in chat, like @warp and @item. Saved now; from your next game.",
 				{ gm } ) { setGm( it ) } )
