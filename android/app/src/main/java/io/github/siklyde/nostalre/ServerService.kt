@@ -111,6 +111,7 @@ class ServerService : Service() {
 		// unwritten (storage full...): the servers start with the rates and NPCs the files already have
 		runCatching { ServerConf.writeBattle( this ) }
 		runCatching { ServerConf.writeHelpers( this ) }
+		runCatching { ServerConf.writeWings( this ) }
 		val procs = listOf(
 			// char-server needs login-server, map-server needs char-server
 			Proc( "login-server", "libloginserver.so", emptyList(), 6900, needed = true ),

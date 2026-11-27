@@ -143,4 +143,42 @@ class ServerConfTest {
 			assertTrue( helper.file, at in 0 until offAt )
 		}
 	}
+
+	@Test fun starterWingsOffByDefaultAndWriteNothing() {
+		assertEquals( false, ServerConf.World.from( emptyMap<String, Any>() ).starterWings )
+		assertTrue( parse( ServerConf.wingsCharFile( false, "1201,1,2", "1681,1,2" ) ).isEmpty() )
+		assertTrue( "Body:" !in ServerConf.wingsItemFile( false ) )
+	}
+
+	@Test fun starterWingsGoAfterTheServersOwnItems() {
+		val conf = parse( ServerConf.wingsCharFile( true, "1201,1,2:2301,1,16:23484,1,0", "1681,1,2:2301,1,16" ) )
+		assertEquals( "1201,1,2:2301,1,16:23484,1,0:12887,1,0:602,1,0", conf["start_items"] )
+		assertEquals( "1681,1,2:2301,1,16:12887,1,0:602,1,0", conf["start_items_doram"] )
+	}
+
+	@Test fun starterWingsWithoutTheServersItemsStillGiveTheWings() {
+		val conf = parse( ServerConf.wingsCharFile( true, null, " " ) )
+		assertEquals( "12887,1,0:602,1,0", conf["start_items"] )
+		assertEquals( "12887,1,0:602,1,0", conf["start_items_doram"] )
+	}
+
+	@Test fun starterWingsMakeButterflyWingsEndlessAndKept() {
+		val yml = ServerConf.wingsItemFile( true )
+		assertTrue( yml.startsWith( "# " ) )
+		assertTrue( "Type: ITEM_DB" in yml && "Version: 3" in yml )
+		assertTrue( "  - Id: 602\n    Flags:\n      NoConsume: true\n    Trade:\n      NoDrop: true\n      NoSell: true\n" in yml )
+	}
+
+	@Test fun theWingsAndTheServersStartItemsAreRealIds() {
+		// the server's own lines, which the wings follow; 12887 and 602 exist in its item tables
+		val conf = parse( File( "../../server/conf/char_athena.conf" ).readText() )
+		assertTrue( conf["start_items"]!!.isNotBlank() && conf["start_items_doram"]!!.isNotBlank() )
+		val items = File( "../../server/db/re/item_db_usable.yml" ).readText()
+		assertTrue( "  - Id: 12887\n" in items && "  - Id: 602\n" in items )
+	}
+
+	@Test fun savedStarterWingsReadBack() {
+		val world = ServerConf.World( starterWings = true )
+		assertEquals( world, ServerConf.World.from( world.toMap() ) )
+	}
 }

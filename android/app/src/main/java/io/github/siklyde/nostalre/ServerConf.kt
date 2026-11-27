@@ -84,7 +84,7 @@ object ServerConf {
 	/**
 	 * The world the servers run, picked in the hub's settings: AI players (the Population Engine's shells) on or off,
 	 * how many at most, how busy a map gets (percent of its spawn table), and the monsters: how many per map (percent)
-	 * and how fast they come back ([respawn] times).
+	 * and how fast they come back ([respawn] times); new characters' [starterWings] ([wingsCharFile]).
 	 */
 	data class World(
 		val ai: Boolean = true,
@@ -92,9 +92,11 @@ object ServerConf {
 		val density: Int = 100,
 		val monsters: Int = 100,
 		val respawn: Int = 1,
+		val starterWings: Boolean = false,
 	) {
 		fun toMap(): Map<String, Any> = mapOf(
 			"ai" to ai, "max_shells" to maxShells, "density" to density, "monsters" to monsters, "respawn" to respawn,
+			"starter_wings" to starterWings,
 		)
 
 		companion object {
@@ -113,6 +115,7 @@ object ServerConf {
 					pick( "density", DENSITY_STEPS, default.density ),
 					pick( "monsters", MONSTER_STEPS, default.monsters ),
 					pick( "respawn", RESPAWN_STEPS, default.respawn ),
+					saved["starter_wings"] as? Boolean ?: default.starterWings,
 				)
 			}
 		}
@@ -158,6 +161,54 @@ object ServerConf {
 		val file = File( Paths( context ).server, "conf/import/battle_conf.txt" )
 		file.parentFile?.mkdirs()
 		file.writeText( battleFile( rates( context ), world( context ) ) )
+	}
+
+	/** Infinite Fly Wing and Butterfly Wing, added to new characters' items by [wingsCharFile]. */
+	private const val WINGS = "12887,1,0:602,1,0"
+	private const val BUTTERFLY_WING = 602
+
+	/**
+	 * conf/import/char_conf.txt: with [on], new characters start with the wings after char_athena.conf's own
+	 * [startItems] and [startItemsDoram] (`<id>,<amount>,<position>:...`); off, nothing, so char_athena.conf's apply.
+	 */
+	fun wingsCharFile( on: Boolean, startItems: String?, startItemsDoram: String? ): String = buildString {
+		appendLine( "// Written by the nostalRE app at every server start: the starter wings picked in its settings" )
+		if( !on )
+			return@buildString
+		fun line( key: String, base: String? ) = appendLine( "$key: ${listOfNotNull( base?.ifBlank { null }, WINGS ).joinToString( ":" )}" )
+		line( "start_items", startItems )
+		line( "start_items_doram", startItemsDoram )
+	}
+
+	/**
+	 * db/import/item_db.yml: with [on], Butterfly Wings are not used up, and so can't be sold or dropped (an endless
+	 * one to sell). rAthena merges an import entry's fields into the item.
+	 */
+	fun wingsItemFile( on: Boolean ): String = buildString {
+		appendLine( "# Written by the nostalRE app at every server start: the starter wings picked in its settings" )
+		appendLine( "Header:" )
+		appendLine( "  Type: ITEM_DB" )
+		appendLine( "  Version: 3" )
+		if( !on )
+			return@buildString
+		appendLine( "Body:" )
+		appendLine( "  - Id: $BUTTERFLY_WING" )
+		appendLine( "    Flags:" )
+		appendLine( "      NoConsume: true" )
+		appendLine( "    Trade:" )
+		appendLine( "      NoDrop: true" )
+		appendLine( "      NoSell: true" )
+	}
+
+	/** The saved starter wings into the servers' import files, before every start (an app update unpacks them afresh). */
+	fun writeWings( context: Context ) {
+		val on = world( context ).starterWings
+		val server = Paths( context ).server
+		// char_athena.conf alone: the import file holds the last write
+		val conf = read( context, "char_athena.conf" )
+		File( server, "conf/import/char_conf.txt" ).apply { parentFile?.mkdirs() }
+			.writeText( wingsCharFile( on, conf["start_items"], conf["start_items_doram"] ) )
+		File( server, "db/import/item_db.yml" ).apply { parentFile?.mkdirs() }.writeText( wingsItemFile( on ) )
 	}
 
 	/** A custom NPC the server's npc/scripts_custom.conf loads, which the player may turn off: [file] under npc/custom. */
