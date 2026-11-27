@@ -22,14 +22,22 @@ object Logs {
 	/** login-server.log -> login-server.prev.log */
 	fun previous( log: File ) = File( log.parentFile, log.name.removeSuffix( ".log" ) + ".prev.log" )
 
-	/** The end of [text] in at most [limit] characters (and a note of what was cut), starting at a line. */
+	/**
+	 * The end of [text] in at most [limit] characters (and a note of what was cut), starting at a line; nothing when
+	 * [limit] has no room past the note.
+	 */
 	fun tail( text: String, limit: Int ): String {
 		if( text.length <= limit )
 			return text
 		val note = "[earlier lines cut]\n"
-		val from = text.length - ( limit - note.length ).coerceAtLeast( 0 )
+		if( limit <= note.length )
+			return ""
+		val from = text.length - ( limit - note.length )
 		val line = text.indexOf( '\n', from - 1 )
-		val start = if( line in from - 1 until text.length - 1 ) line + 1 else from
+		var start = if( line in from - 1 until text.length - 1 ) line + 1 else from
+		// never half of a character outside the BMP (an emoji in chat)
+		if( text[start].isLowSurrogate() )
+			start++
 		return note + text.substring( start )
 	}
 
@@ -42,13 +50,13 @@ object Logs {
 		val titles = sections.map { ( title, _ ) -> "\n===== $title =====\n" }
 		// each body ends in a line break too
 		var left = limit - head.length - titles.sumOf { it.length + 1 }
+		val texts = sections.map { ( _, text ) -> text?.trimEnd()?.ifEmpty { null } ?: "(none)" }
 		val bodies = arrayOfNulls<String>( sections.size )
 		// shortest first: each takes what it needs up to an even share of what is left
-		val order = sections.indices.sortedBy { sections[it].second?.length ?: 0 }
+		val order = sections.indices.sortedBy { texts[it].length }
 		for( ( done, i ) in order.withIndex() ) {
-			val text = sections[i].second?.trimEnd()?.ifEmpty { null } ?: "(none)"
 			val share = ( left / ( order.size - done ) ).coerceAtLeast( 0 )
-			bodies[i] = tail( text, share )
+			bodies[i] = tail( texts[i], share )
 			left -= bodies[i]!!.length
 		}
 		return buildString {

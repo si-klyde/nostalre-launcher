@@ -34,18 +34,21 @@ object LogExport {
 				"bug report on GitHub or Discord.\n\nThey show your account name and game folder, nothing else private.\n\n" +
 				"Copy fits a GitHub issue. Share sends the full logs as a file." )
 			.setNegativeButton( "Cancel", null )
-			.setNeutralButton( "Copy" ) { _, _ -> build( context, Logs.COPY_LIMIT ) { copy( context, it ) } }
-			.setPositiveButton( "Share" ) { _, _ -> build( context, Logs.FILE_LIMIT * sectionCount() ) { share( context, it ) } }
+			.setNeutralButton( "Copy" ) { _, _ -> build( context, Logs.COPY_LIMIT, { it } ) { copy( context, it ) } }
+			.setPositiveButton( "Share" ) { _, _ -> build( context, Logs.FILE_LIMIT * sectionCount(), { write( context, it ) } ) { share( context, it ) } }
 			.let { Ui.show( it ) }
 			.getButton( AlertDialog.BUTTON_POSITIVE ).requestFocus()
 	}
 
-	/** Builds the report off the main thread (logcat takes a moment), then [done] with it on the main thread. */
-	private fun build( context: Context, limit: Int, done: ( String ) -> Unit ) {
+	/**
+	 * Builds the report and [prepare]s it off the main thread (logcat takes a moment, the file can be megabytes), then
+	 * [done] with the result on the main thread.
+	 */
+	private fun <T> build( context: Context, limit: Int, prepare: ( String ) -> T, done: ( T ) -> Unit ) {
 		val app = context.applicationContext
 		thread( name = "logs" ) {
-			val report = Logs.report( header( app ), sections( app ), limit )
-			Handler( Looper.getMainLooper() ).post { done( report ) }
+			val result = prepare( Logs.report( header( app ), sections( app ), limit ) )
+			Handler( Looper.getMainLooper() ).post { done( result ) }
 		}
 	}
 
@@ -94,15 +97,17 @@ object LogExport {
 			Toast.makeText( context, "Logs copied", Toast.LENGTH_SHORT ).show()
 	}
 
-	private fun share( context: Context, report: String ) {
-		val file = runCatching {
-			val dir = LogProvider.dir( context )
-			// one export at a time: the last one is all a player needs
-			dir.deleteRecursively()
-			dir.mkdirs()
-			val stamp = SimpleDateFormat( "yyyyMMdd-HHmmss", Locale.ROOT ).format( Date() )
-			File( dir, "nostalre-logs-$stamp.txt" ).apply { writeText( report ) }
-		}.getOrElse {
+	private fun write( context: Context, report: String ): Result<File> = runCatching {
+		val dir = LogProvider.dir( context )
+		// one export at a time: the last one is all a player needs
+		dir.deleteRecursively()
+		dir.mkdirs()
+		val stamp = SimpleDateFormat( "yyyyMMdd-HHmmss", Locale.ROOT ).format( Date() )
+		File( dir, "nostalre-logs-$stamp.txt" ).apply { writeText( report ) }
+	}
+
+	private fun share( context: Context, written: Result<File> ) {
+		val file = written.getOrElse {
 			Toast.makeText( context, "Couldn't write the logs: ${it.message}", Toast.LENGTH_LONG ).show()
 			return
 		}
