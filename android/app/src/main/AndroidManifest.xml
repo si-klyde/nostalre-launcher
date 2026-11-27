@@ -49,5 +49,12 @@
 				android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
 				android:value="Local game server for the offline game client in this app" />
 		</service>
+
+		<!-- the exported logs, for the app the player shares them with (LogExport.kt) -->
+		<provider
+			android:name=".LogProvider"
+			android:authorities="${applicationId}.logs"
+			android:exported="false"
+			android:grantUriPermissions="true" />
 	</application>
 </manifest>
