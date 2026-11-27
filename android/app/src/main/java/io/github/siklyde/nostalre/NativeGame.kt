@@ -43,6 +43,8 @@ object NativeGame {
 			put( "char_id", charId )
 		} )
 		file.writeText( config.toString( 2 ) )
+		// the client writes client.log anew each run: keep the one before, maybe a crash's
+		Logs.keepPrevious( File( activity.filesDir, "client.log" ) )
 	}
 
 	/**

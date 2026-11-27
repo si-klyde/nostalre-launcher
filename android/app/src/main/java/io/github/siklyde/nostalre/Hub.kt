@@ -29,7 +29,7 @@ import kotlin.math.abs
  * one was made or deleted.
  *
  * Controller: left/right or L1/R1 step through the line-up, A plays (or makes, on the last stop), X makes, Y deletes,
- * Start opens the settings ([SettingsScreen]). Touch: swipe or tap a neighbour to step, and the buttons along the bottom.
+ * Start opens the settings ([SettingsScreen]), Select exports the logs ([LogExport]). Touch: swipe or tap a neighbour to step, and the buttons along the bottom.
  * [onRestart] starts the servers again with new rates or helper NPCs (picked in the settings), then the hub selecting a
  * character. [onEnglish] installs (or with true removes) the English text ([EnglishText]), then restarts the servers.
  */
@@ -137,6 +137,7 @@ class Hub(
 			// until it is installed; then it lives in the settings
 			if( !EnglishText.installed( context ) )
 				addView( Ui.hint( context, listOf( "EN" ), "Install English text", primary = true ) { onEnglish( selectedId(), false ) } )
+			addView( Ui.hint( context, listOf( "SEL" ), "Logs" ) { LogExport.ask( context ) } )
 			addView( Ui.hint( context, listOf( "≡" ), "Settings" ) { settings() } )
 		}
 		select = Ui.screen( context, Ui.breadcrumb( context, null, "CHARACTERS" ), corner, body, help, listOf(
@@ -290,6 +291,7 @@ class Hub(
 			KeyEvent.KEYCODE_BUTTON_X -> { { startCreating() } }
 			KeyEvent.KEYCODE_BUTTON_Y -> { { characters.getOrNull( selected )?.let { confirmDelete( it ) } } }
 			KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_MENU -> { { settings() } }
+			KeyEvent.KEYCODE_BUTTON_SELECT -> { { LogExport.ask( context ) } }
 			else -> return false
 		}
 		// held left/right keeps stepping; the rest act once

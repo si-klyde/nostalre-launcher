@@ -11,6 +11,7 @@ import android.content.pm.ServiceInfo
 import android.os.IBinder
 import java.io.File
 import java.io.IOException
+import java.util.Date
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.TimeUnit
@@ -123,10 +124,11 @@ class ServerService : Service() {
 		for( proc in procs ) {
 			if( stopping )
 				return
+			val log = File( paths.logs, "${proc.name}.log" ).also { Logs.keepPrevious( it ) }
 			val process = ProcessBuilder( listOf( File( paths.bin, proc.lib ).path ) + proc.args )
 				.directory( paths.server )
 				.redirectErrorStream( true )
-				.redirectOutput( File( paths.logs, "${proc.name}.log" ) )
+				.redirectOutput( log )
 				.apply {
 					// keep the working directory: the binaries live apart from conf/ (rAthena chdirs to argv[0]'s dir)
 					environment()["RA_KEEP_CWD"] = "1"
@@ -136,6 +138,9 @@ class ServerService : Service() {
 			synchronized( running ) { running += proc.name to process }
 			thread( name = "watch-${proc.name}" ) {
 				val code = process.waitFor()
+				// how it ended, for a bug report: a server that dies mid-game leaves no line of its own
+				val reason = if( stopping ) "stopped by the app" else "stopped by itself"
+				runCatching { log.appendText( "\n[nostalRE] ${proc.name} exited with code $code ($reason) at ${Date()}\n" ) }
 				if( !stopping )
 					getSystemService( NotificationManager::class.java ).notify( 1, notification( "${proc.name} stopped (exit $code)" ) )
 			}
